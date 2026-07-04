@@ -35,6 +35,8 @@ closed** to `NEEDS_LICENSED_PRO` (`src/triage/triageService.ts`).
 
 ## Quick start
 
+New to Node projects? See **[RUNNING.md](RUNNING.md)** for a step-by-step guide.
+
 ```bash
 npm install       # also installs the web/ frontend (postinstall)
 npm test          # 41 tests — the safety gate, matching, masking, state, full loop
