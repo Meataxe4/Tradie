@@ -9,7 +9,7 @@ import { dirname, resolve } from "node:path";
 import { createApp } from "./api/app.js";
 import { MemoryStore } from "./store/memoryStore.js";
 import { createLlmClient } from "./config.js";
-import { seed } from "./seed.js";
+import { seed, seedDemoJobs } from "./seed.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const webDist = resolve(here, "..", "web", "dist");
@@ -17,6 +17,7 @@ const staticDir = existsSync(webDist) ? webDist : undefined;
 
 const store = new MemoryStore();
 seed(store);
+await seedDemoJobs(store);
 
 const { client, kind } = createLlmClient();
 const app = createApp({ store, llm: client, staticDir });

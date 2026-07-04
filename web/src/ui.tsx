@@ -62,6 +62,15 @@ export const Icon = {
   key: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="7.5" cy="15.5" r="4.5" /><path d="m10.5 12.5 8-8m-3 3 2 2m-4-4 2 2" /></svg>
   ),
+  lock: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="10.5" width="16" height="10.5" rx="2" /><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" /><circle cx="12" cy="15.5" r="1.2" /></svg>
+  ),
+  search: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+  ),
+  filter: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 5h18l-7 8v6l-4-2v-4z" /></svg>
+  ),
   home: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" /></svg>
   ),
@@ -75,7 +84,7 @@ export const CATEGORY_META: Record<string, { label: string; icon: keyof typeof I
   structural: { label: "Structural", icon: "home" },
   carpentry: { label: "Carpentry", icon: "tools" },
   appliance: { label: "Appliances", icon: "bolt" },
-  locksmith: { label: "Locksmith", icon: "key" },
+  locksmith: { label: "Locksmith", icon: "lock" },
   handyman: { label: "Handyman", icon: "tools" },
   other: { label: "Other", icon: "tools" },
 };

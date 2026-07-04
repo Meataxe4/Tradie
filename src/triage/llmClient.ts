@@ -99,17 +99,24 @@ export class MockTriageClient implements TriageLlmClient {
 
     // --- PRO: dead power point / fixed wiring (this is example B from the spec) ---
     if (has("power point", "powerpoint", "power outlet", "outlet", "gpo", "light switch", "downlight", "ceiling fan")) {
+      const fitting = has("ceiling fan")
+        ? "ceiling fan"
+        : has("downlight")
+          ? "downlight"
+          : has("light switch") || has("switch")
+            ? "light switch"
+            : "power point";
       return needsPro({
         category: "electrical",
         regulated_domains: ["electrical"],
         recommended_trade: "electrician",
         licence: "Unrestricted electrical licence",
         why:
-          "Power points connect to fixed wiring. In Australia this is licensed " +
-          "electrical work — it's illegal and unsafe to DIY.",
-        title: "Fixed-wiring electrical fault",
-        summary: "A fixed electrical fitting is faulty and needs a licensed electrician.",
-        symptoms: ["Fitting not working as expected"],
+          "Power points and fixed fittings connect to fixed wiring. In Australia this is " +
+          "licensed electrical work — it's illegal and unsafe to DIY.",
+        title: `Faulty ${fitting}`,
+        summary: `A ${fitting} has stopped working and needs a licensed electrician to fault-find and repair.`,
+        symptoms: [`${fitting.charAt(0).toUpperCase() + fitting.slice(1)} not working`],
         questions: [
           "Are other outlets on the same wall affected?",
           "Has the safety switch tripped?",
@@ -156,6 +163,25 @@ export class MockTriageClient implements TriageLlmClient {
         userMessage:
           "This needs a licensed plumber — water-connected plumbing isn't a DIY job. " +
           "I've written up the details so you'll get accurate private quotes shortly.",
+        photoCount: input.photoCount,
+      });
+    }
+
+    // --- PRO: fixed appliance repair (non-regulated, no licence class required) ---
+    if (has("oven", "dishwasher", "washing machine", "clothes dryer", "rangehood", "range hood", "electric cooktop")) {
+      return needsPro({
+        category: "appliance",
+        regulated_domains: ["none"],
+        recommended_trade: "handyman",
+        licence: null,
+        why: "This is a fixed appliance repair — best handled by a qualified appliance technician.",
+        title: "Appliance repair",
+        summary: "A household appliance has stopped working correctly.",
+        symptoms: ["Appliance not operating as expected"],
+        questions: ["What's the make and model?", "Is it getting power at all?"],
+        userMessage:
+          "This looks like an appliance repair. I've written up the details so qualified " +
+          "technicians can send you private quotes shortly.",
         photoCount: input.photoCount,
       });
     }
@@ -299,7 +325,7 @@ function needsPro(a: {
   regulated_domains: ModelTriage["regulated_domains"];
   safety_flags?: ModelTriage["safety_flags"];
   recommended_trade: ModelTriage["recommended_trade"];
-  licence: string;
+  licence: string | null;
   why: string;
   title: string;
   summary: string;

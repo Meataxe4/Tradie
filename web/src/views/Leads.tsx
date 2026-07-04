@@ -1,20 +1,58 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 import type { Lead, WonLead } from "../types";
 import { CATEGORY_META, Icon, Spinner, money } from "../ui";
 import { timeAgo } from "../parts";
 
+type Sort = "new" | "old" | "fewest";
+
 export function Leads() {
   const [leads, setLeads] = useState<Lead[] | null>(null);
   const [won, setWon] = useState<WonLead[]>([]);
   const [err, setErr] = useState("");
+
+  // filters
+  const [q, setQ] = useState("");
+  const [cat, setCat] = useState("");
+  const [urgency, setUrgency] = useState("");
+  const [hideQuoted, setHideQuoted] = useState(false);
+  const [sort, setSort] = useState<Sort>("new");
 
   useEffect(() => {
     Promise.all([api.leads(), api.wonLeads()])
       .then(([l, w]) => { setLeads(l); setWon(w); })
       .catch((e) => setErr(e.message));
   }, []);
+
+  const categories = useMemo(
+    () => Array.from(new Set((leads ?? []).map((l) => l.category))),
+    [leads],
+  );
+
+  const filtered = useMemo(() => {
+    let out = (leads ?? []).slice();
+    const needle = q.trim().toLowerCase();
+    if (needle) {
+      out = out.filter((l) =>
+        (l.job_spec?.title ?? "").toLowerCase().includes(needle) ||
+        (l.job_spec?.summary ?? "").toLowerCase().includes(needle) ||
+        l.suburb.toLowerCase().includes(needle),
+      );
+    }
+    if (cat) out = out.filter((l) => l.category === cat);
+    if (urgency) out = out.filter((l) => l.urgency === urgency);
+    if (hideQuoted) out = out.filter((l) => !l.my_quote);
+    out.sort((a, b) => {
+      if (sort === "fewest") return a.quote_count - b.quote_count;
+      const cmp = a.created_at.localeCompare(b.created_at);
+      return sort === "new" ? -cmp : cmp;
+    });
+    return out;
+  }, [leads, q, cat, urgency, hideQuoted, sort]);
+
+  const active = Boolean(q || cat || urgency || hideQuoted || sort !== "new");
+  const clear = () => { setQ(""); setCat(""); setUrgency(""); setHideQuoted(false); setSort("new"); };
 
   if (err) return <p className="err">{err}</p>;
   if (!leads) return <Spinner />;
@@ -28,16 +66,63 @@ export function Leads() {
         stays private until you win the work.
       </p>
 
+      {leads.length > 0 && (
+        <div className="filterbar">
+          <div className="search">
+            {Icon.search}
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search jobs by title, summary or suburb…" />
+          </div>
+          <div className="filter-row">
+            {categories.length > 1 && (
+              <>
+                <button className={`chip ${cat === "" ? "active" : ""}`} onClick={() => setCat("")}>All trades</button>
+                {categories.map((c) => (
+                  <button key={c} className={`chip ${cat === c ? "active" : ""}`} onClick={() => setCat(c)}>
+                    {CATEGORY_META[c]?.label ?? c}
+                  </button>
+                ))}
+                <span style={{ width: 1, alignSelf: "stretch", background: "var(--hairline)", margin: "0 2px" }} />
+              </>
+            )}
+            <select className="filter-select" value={urgency} onChange={(e) => setUrgency(e.target.value)}>
+              <option value="">Any urgency</option>
+              <option value="emergency">Emergency</option>
+              <option value="urgent">Urgent</option>
+              <option value="routine">Routine</option>
+            </select>
+            <select className="filter-select" value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
+              <option value="new">Newest first</option>
+              <option value="old">Oldest first</option>
+              <option value="fewest">Fewest quotes</option>
+            </select>
+            <label className="filter-toggle">
+              <input type="checkbox" checked={hideQuoted} onChange={(e) => setHideQuoted(e.target.checked)} />
+              Hide jobs I've quoted
+            </label>
+          </div>
+        </div>
+      )}
+
+      {leads.length > 0 && (
+        <div className="filter-meta">
+          <span>{filtered.length} of {leads.length} job{leads.length === 1 ? "" : "s"}</span>
+          {active && <button className="filter-clear" onClick={clear}>Clear filters</button>}
+        </div>
+      )}
+
       {leads.length === 0 && <div className="empty">No open jobs match your profile right now. New ones will appear here.</div>}
+      {leads.length > 0 && filtered.length === 0 && (
+        <div className="empty">No jobs match these filters. <button className="filter-clear" onClick={clear}>Clear filters</button></div>
+      )}
 
       <div className="list">
-        {leads.map((l) => {
+        {filtered.map((l) => {
           const meta = CATEGORY_META[l.category] ?? CATEGORY_META.other!;
           return (
             <Link className="feed-card" to={`/leads/${l.job_id}`} key={l.job_id}>
               <div className="fc-top">
                 <div className="row" style={{ gap: 12, alignItems: "flex-start" }}>
-                  <span className="ci" style={{ width: 40, height: 40, borderRadius: 11, display: "grid", placeItems: "center", background: "color-mix(in srgb, var(--accent) 12%, transparent)", color: "var(--accent)", flex: "none" }}>
+                  <span style={{ width: 40, height: 40, borderRadius: 11, display: "grid", placeItems: "center", background: "color-mix(in srgb, var(--accent) 12%, transparent)", color: "var(--accent)", flex: "none" }}>
                     {Icon[meta.icon]}
                   </span>
                   <div>
