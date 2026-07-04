@@ -36,10 +36,21 @@ closed** to `NEEDS_LICENSED_PRO` (`src/triage/triageService.ts`).
 ## Quick start
 
 ```bash
-npm install
-npm test          # 39 tests — the safety gate, matching, masking, state, full loop
+npm install       # also installs the web/ frontend (postinstall)
+npm test          # 41 tests — the safety gate, matching, masking, state, full loop
 npm run typecheck
-npm start         # boots the API on :3000 (offline mock triage by default)
+npm run dev       # API on :3000 + web UI on :5173 (open http://localhost:5173)
+```
+
+Open **http://localhost:5173** and pick a demo identity (homeowner or tradie) to
+walk the whole flow. `npm run dev` runs the API and the Vite dev server together;
+the frontend proxies `/api` to the backend so there's no CORS.
+
+**Single-server / production mode:**
+
+```bash
+npm run build:web   # builds web/ into web/dist
+npm start           # Express serves the API *and* the built UI on :3000
 ```
 
 No API key is required: with no `ANTHROPIC_API_KEY` the app uses a deterministic,
@@ -49,15 +60,17 @@ identically either way**.
 
 ### Try it
 
+All API routes are under `/api`.
+
 ```bash
 # Homeowner posts a dead power point → routed to a licensed electrician, no DIY steps
-curl -s -X POST localhost:3000/jobs \
+curl -s -X POST localhost:3000/api/jobs \
   -H 'content-type: application/json' -H 'x-user-id: home-1' -H 'x-user-role: homeowner' \
   -d '{"description":"A power point in the bedroom is dead","photos":["p1"],
        "suburb":"Newtown","postcode":"2042","state":"NSW","full_address":"1 Example St"}'
 
 # Admin runs triage directly (see the model verdict, final verdict and overrides)
-curl -s -X POST localhost:3000/triage \
+curl -s -X POST localhost:3000/api/triage \
   -H 'content-type: application/json' -H 'x-user-id: admin-1' -H 'x-user-role: admin' \
   -d '{"description":"strong gas smell in the kitchen"}'
 ```
@@ -90,26 +103,46 @@ src/
     views.ts         §9 masked read models (suburb-only until a tradie wins)
   store/memoryStore.ts   in-memory data + override & leakage audit logs
   config.ts, seed.ts, index.ts
+
+web/               REACT FRONTEND (Vite + TypeScript)
+  src/api.ts         typed API client (injects the x-user-* auth headers)
+  src/ui.tsx         verdict banner, safety-gate panel, icons
+  src/views/         Login, NewJob, Jobs, JobDetail, Leads, LeadDetail, Thread
+  src/styles.css     shared design system (theme-aware, matches the brand)
 ```
 
 Every module cites the spec section it implements. The LLM is behind an
 interface, so the safety gate is fully unit-tested with no network.
 
-## API surface (§8)
+## Frontend
+
+A React SPA (`web/`) for both roles, sharing the backend's visual language:
+
+- **Homeowner** — describe a problem → see the triage verdict, DIY steps *or* the
+  job spec, and the live safety-gate panel; browse jobs; read private sealed
+  quotes; accept one (address reveals); message (masked); review after completion.
+- **Tradie** — see matched leads (homeowner masked, address hidden), submit a
+  sealed quote, message, and track won jobs.
+
+Sign-in is a demo identity picker (real auth is a v1 item). The whole flow has
+been driven end-to-end in a real browser in both light and dark themes.
+
+## API surface (§8) — all under `/api`
 
 | Group | Endpoint | Notes |
 |---|---|---|
-| Homeowner | `POST /jobs` | create → triage → post/DIY-resolve |
-| | `GET /jobs/:id` | own job incl. triage + DIY guidance |
-| | `GET /jobs/:id/quotes` | private, sealed quote list |
-| | `POST /quotes/:id/accept` | auto-declines the rest, reveals address, books |
-| Tradie | `GET /leads`, `GET /leads/:id` | matched jobs, homeowner masked |
-| | `POST /jobs/:id/quotes` | submit a sealed quote |
-| | `GET /me/leads/won` | won bookings |
-| Shared | `POST /threads/:id/messages` | masked in-app chat |
-| | `POST /bookings/:id/complete`, `POST /bookings/:id/review` | review only after completion |
-| | `POST /triage` | run triage without persisting (internal/admin) |
-| Admin | `GET /admin/override-log`, `/admin/leakage-log`, `/admin/verification-queue` | |
+| Homeowner | `POST /api/jobs` | create → triage → post/DIY-resolve |
+| | `GET /api/jobs`, `GET /api/jobs/:id` | own jobs; detail incl. triage + booking |
+| | `GET /api/jobs/:id/quotes` | private, sealed quote list |
+| | `POST /api/quotes/:id/accept` | auto-declines the rest, reveals address, books |
+| Tradie | `GET /api/leads`, `GET /api/leads/:id` | matched jobs, homeowner masked |
+| | `POST /api/jobs/:id/quotes` | submit a sealed quote |
+| | `GET /api/me/quotes`, `GET /api/me/leads/won` | own quotes; won bookings |
+| Shared | `GET/POST /api/threads/:id/messages` | masked in-app chat |
+| | `POST /api/bookings/:id/complete`, `.../review` | review only after completion |
+| | `POST /api/triage` | run triage without persisting (internal/admin) |
+| Admin | `GET /api/admin/override-log`, `/leakage-log`, `/verification-queue` | |
+| System | `GET /api/demo/identities` | seeded demo logins for the UI picker |
 
 ## §12 decisions taken for this MVP
 

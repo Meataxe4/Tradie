@@ -1,0 +1,143 @@
+// Shapes mirrored from the backend responses (a pragmatic subset).
+
+export type Role = "homeowner" | "tradie" | "admin";
+
+export type Verdict =
+  | "DIY_SAFE"
+  | "NEEDS_LICENSED_PRO"
+  | "EMERGENCY_STOP"
+  | "UNCLEAR";
+
+export interface Identity {
+  id: string;
+  role: Role;
+  label: string;
+}
+
+export interface DiyGuidance {
+  steps: string[];
+  tools_required: string[];
+  stop_conditions: string[];
+}
+
+export interface JobSpec {
+  title: string;
+  summary: string;
+  symptoms: string[];
+  access_notes: string;
+  questions_for_site_visit: string[];
+  urgency: "emergency" | "urgent" | "routine";
+  photos_attached: boolean;
+}
+
+export interface TriageResult {
+  triage_id: string;
+  verdict: Verdict;
+  confidence: "low" | "medium" | "high";
+  category: string;
+  regulated_domains: string[];
+  safety_flags: string[];
+  recommended_trade: string;
+  required_licence_class: string | null;
+  clarifying_questions: string[];
+  diy_guidance: DiyGuidance | null;
+  why_pro_needed: string | null;
+  job_spec: JobSpec | null;
+  user_message: string;
+  disclaimer: string;
+}
+
+export interface Override {
+  reason: string;
+  from_verdict: Verdict;
+  to_verdict: Verdict;
+  detail: string;
+}
+
+export interface JobSummary {
+  id: string;
+  category: string;
+  description: string;
+  suburb: string;
+  postcode: string;
+  status: string;
+  urgency: string;
+  created_at: string;
+  verdict: Verdict | null;
+  quote_count: number;
+}
+
+export interface JobDetail extends JobSummary {
+  photos: string[];
+  full_address?: string;
+  triage: TriageResult | null;
+  booking: Booking | null;
+}
+
+export interface CreateJobResponse {
+  job: JobSummary;
+  triage: TriageResult;
+  overrides: Override[];
+  model_verdict: Verdict;
+  matched_tradies: string[];
+}
+
+export interface Quote {
+  quote_id: string;
+  job_id: string;
+  tradie: {
+    tradie_id: string;
+    business_name: string;
+    rating_avg: number;
+    jobs_completed: number;
+  } | null;
+  amount: number;
+  inclusions: string;
+  earliest_availability?: string;
+  status: string;
+  created_at: string;
+}
+
+export interface Lead {
+  job_id: string;
+  category: string;
+  suburb: string;
+  full_address: string | null;
+  urgency: string;
+  status: string;
+  job_spec: JobSpec | null;
+  why_pro_needed: string | null;
+  required_licence_class: string | null;
+  photos: string[];
+  created_at: string;
+  my_quote: Quote | null;
+}
+
+export interface Message {
+  id: string;
+  thread_id: string;
+  sender_role: "homeowner" | "tradie";
+  body: string;
+  redacted: boolean;
+  created_at: string;
+}
+
+export interface Booking {
+  id: string;
+  job_id: string;
+  quote_id: string;
+  tradie_id: string;
+  status: string;
+  scheduled_for?: string;
+}
+
+export interface WonLead {
+  booking: Booking;
+  thread_id: string;
+  job: Lead | null;
+}
+
+export interface MyQuote extends Quote {
+  thread_id: string;
+  job: Lead | null;
+}

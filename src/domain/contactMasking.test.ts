@@ -31,4 +31,19 @@ describe("contact masking (§9)", () => {
     expect(redacted).toBe(false);
     expect(body).toBe(clean);
   });
+
+  it("produces a clean placeholder that never nests or garbles", () => {
+    const { body } = maskContactInfo("Great, call me on 0412 345 678");
+    expect(body).toBe("Great, [redacted]");
+    // The placeholder must not re-trigger the phrase filter (no "[[…]" nesting).
+    expect(body).not.toMatch(/\[\[/);
+    expect(body).not.toContain("contact removed");
+  });
+
+  it("collapses multiple redactions in one message", () => {
+    const { body } = maskContactInfo("email me at bob@builder.com.au or ring (02) 9876 5432");
+    expect(body).not.toMatch(/\d{4}/);
+    expect(body).not.toContain("@");
+    expect(body).not.toMatch(/\[\[/);
+  });
 });
