@@ -82,15 +82,23 @@ export interface CreateJobResponse {
   matched_tradies: string[];
 }
 
+export interface TradieSummary {
+  tradie_id: string;
+  business_name: string;
+  rating_avg: number;
+  jobs_completed: number;
+  response_minutes: number | null;
+  verified: boolean;
+  licence_class: string | null;
+  licence_verified: boolean;
+  insured: boolean;
+  member_since: string | null;
+}
+
 export interface Quote {
   quote_id: string;
   job_id: string;
-  tradie: {
-    tradie_id: string;
-    business_name: string;
-    rating_avg: number;
-    jobs_completed: number;
-  } | null;
+  tradie: TradieSummary | null;
   amount: number;
   inclusions: string;
   earliest_availability?: string;
@@ -110,6 +118,8 @@ export interface Lead {
   required_licence_class: string | null;
   photos: string[];
   created_at: string;
+  quote_count: number;
+  poster: { suburb: string; member_since: string | null; verified: boolean };
   my_quote: Quote | null;
 }
 

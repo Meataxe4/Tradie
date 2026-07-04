@@ -32,6 +32,52 @@ export const Icon = {
   star: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11.5 2.5 14 8l6 .5-4.5 4 1.4 6L11.5 15 6 18.5 7.5 12.5 3 8.5 9 8z" /></svg>
   ),
+  starFill: (
+    <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2.5l2.7 5.9 6.3.6-4.8 4.2 1.5 6.3L12 16.9 6.3 19.5l1.5-6.3L3 9l6.3-.6z" /></svg>
+  ),
+  clock: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+  ),
+  pin: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z" /><circle cx="12" cy="10" r="3" /></svg>
+  ),
+  camera: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
+  ),
+  arrow: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+  ),
+  bolt: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z" /></svg>
+  ),
+  drop: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.5S5 10 5 14.5a7 7 0 0 0 14 0C19 10 12 2.5 12 2.5z" /></svg>
+  ),
+  flame: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2c1 3-1.5 4.5-2.5 6S8 12 8 12a4 4 0 1 0 7 2.5c0-2-1-3.5-1-3.5 2 .5 3 2.5 3 4a6 6 0 1 1-11.5-2.3C4.8 8.5 8 7 8 4c1.6.8 4 .5 4-2z" /></svg>
+  ),
+  snow: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M2 12h20m-3-6-14 12m0-12 14 12" /></svg>
+  ),
+  key: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="7.5" cy="15.5" r="4.5" /><path d="m10.5 12.5 8-8m-3 3 2 2m-4-4 2 2" /></svg>
+  ),
+  home: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" /></svg>
+  ),
+};
+
+export const CATEGORY_META: Record<string, { label: string; icon: keyof typeof Icon }> = {
+  electrical: { label: "Electrical", icon: "bolt" },
+  plumbing_water: { label: "Plumbing", icon: "drop" },
+  gas: { label: "Gas", icon: "flame" },
+  hvac: { label: "Heating & cooling", icon: "snow" },
+  structural: { label: "Structural", icon: "home" },
+  carpentry: { label: "Carpentry", icon: "tools" },
+  appliance: { label: "Appliances", icon: "bolt" },
+  locksmith: { label: "Locksmith", icon: "key" },
+  handyman: { label: "Handyman", icon: "tools" },
+  other: { label: "Other", icon: "tools" },
 };
 
 const VMETA: Record<Verdict, { cls: string; ico: ReactNode; label: string }> = {

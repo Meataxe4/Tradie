@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { api } from "../api";
 import type { JobDetail as JobDetailT, Quote } from "../types";
 import { Icon, Spinner, money } from "../ui";
+import { Avatar, Stars, Stepper, TrustRow, timeAgo, memberSince } from "../parts";
 import { TriageView } from "./TriageView";
 import { Thread } from "./Thread";
 
@@ -13,14 +14,13 @@ export function JobDetail() {
   const [err, setErr] = useState("");
   const [openThread, setOpenThread] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showTriage, setShowTriage] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const j = await api.job(id);
       setJob(j);
-      if (j.status !== "DIY_RESOLVED" && j.status !== "DRAFT") {
-        setQuotes(await api.jobQuotes(id));
-      }
+      if (j.status !== "DIY_RESOLVED" && j.status !== "DRAFT") setQuotes(await api.jobQuotes(id));
     } catch (e) {
       setErr((e as Error).message);
     }
@@ -34,7 +34,6 @@ export function JobDetail() {
     catch (e) { setErr((e as Error).message); }
     finally { setBusy(false); }
   };
-
   const complete = async () => {
     if (!job?.booking) return;
     setBusy(true);
@@ -48,72 +47,98 @@ export function JobDetail() {
 
   const accepted = quotes.find((q) => q.status === "accepted");
   const canAccept = ["QUOTING", "POSTED"].includes(job.status);
+  const live = quotes.filter((q) => q.status !== "declined");
+  const isPro = job.status !== "DIY_RESOLVED" && job.status !== "DRAFT";
 
   return (
     <div>
-      <p className="eyebrow">Job · {job.status}</p>
+      <p className="eyebrow">{job.category} · {job.suburb} · posted {timeAgo(job.created_at)}</p>
       <h1 className="page-title">{job.triage?.job_spec?.title ?? `${job.category} · ${job.suburb}`}</h1>
       <p className="page-sub">{job.description}</p>
 
-      {job.triage && <TriageView triage={job.triage} />}
+      {isPro && <Stepper status={job.status} />}
 
-      {job.status === "DIY_RESOLVED" && (
-        <p className="notice" style={{ marginTop: 18 }}>
-          This was a safe DIY job, so it wasn't posted to tradies. If you'd rather not tackle it, describe it
-          again and let us know you'd like a pro.
-        </p>
-      )}
+      {job.status === "DIY_RESOLVED" ? (
+        <>
+          {job.triage && <TriageView triage={job.triage} />}
+          <p className="notice" style={{ marginTop: 16 }}>
+            This was a safe DIY job, so it wasn't posted to tradies. Prefer a pro? Describe it again and say you'd
+            rather not tackle it yourself.
+          </p>
+        </>
+      ) : (
+        <>
+          {/* Quotes are the star of this screen (Airtasker-style). Triage is tucked behind a toggle. */}
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <p className="eyebrow" style={{ margin: 0 }}>
+              {accepted ? "Your booking" : `${live.filter((q) => q.status === "submitted").length} quote${live.filter((q) => q.status === "submitted").length === 1 ? "" : "s"} so far`}
+            </p>
+            <button className="btn ghost sm" onClick={() => setShowTriage((s) => !s)}>
+              {showTriage ? "Hide triage details" : "View triage details"}
+            </button>
+          </div>
 
-      {job.status !== "DIY_RESOLVED" && (
-        <div style={{ marginTop: 22 }}>
-          <p className="eyebrow">Private quotes {accepted ? "" : `· ${quotes.filter((q) => q.status === "submitted").length} in`}</p>
+          {showTriage && job.triage && <div style={{ marginBottom: 18 }}><TriageView triage={job.triage} /></div>}
 
-          {quotes.length === 0 && (
-            <div className="notice">No quotes yet — matched tradies have been notified and quote privately. Sealed, so no tradie sees another's price.</div>
+          {live.length === 0 && (
+            <div className="notice" style={{ marginBottom: 16 }}>
+              No quotes yet — verified tradies matched to this job have been notified and quote privately.
+              Sealed, so no tradie sees another's price.
+            </div>
           )}
 
           <div className="list">
-            {quotes.filter((q) => q.status !== "declined").map((q) => (
-              <div className="tile" key={q.quote_id} style={q.status === "accepted" ? { borderColor: "var(--safe)" } : undefined}>
-                <div className="top">
-                  <h4>{q.tradie?.business_name ?? "Tradie"}</h4>
-                  <span className="money">{money(q.amount)}</span>
+            {live.map((q) => {
+              const t = q.tradie;
+              return (
+                <div className={`offer ${q.status === "accepted" ? "won" : ""}`} key={q.quote_id}>
+                  <div className="offer-head">
+                    {t && <Avatar name={t.business_name} />}
+                    <div className="offer-who">
+                      <div className="offer-name">{t?.business_name ?? "Tradie"}</div>
+                      <div className="offer-sub">
+                        {t && <Stars value={t.rating_avg} count={t.jobs_completed} />}
+                        {t?.member_since && <span>· {memberSince(t.member_since)}</span>}
+                      </div>
+                    </div>
+                    <div className="offer-price">
+                      <div className="amt">{money(q.amount)}</div>
+                      {q.earliest_availability && <div className="avail">from {q.earliest_availability}</div>}
+                    </div>
+                  </div>
+                  <p className="offer-incl">{q.inclusions}</p>
+                  {t && <TrustRow tradie={t} />}
+                  <div className="offer-actions">
+                    {canAccept && q.status === "submitted" && (
+                      <button className="btn sm" disabled={busy} onClick={() => accept(q.quote_id)}>Accept quote</button>
+                    )}
+                    {q.status === "accepted" && <span className="offer-status accepted">✓ Booked</span>}
+                    <button className="btn ghost sm" onClick={() => setOpenThread(openThread === q.quote_id ? null : q.quote_id)}>
+                      {openThread === q.quote_id ? "Hide messages" : "Message"}
+                    </button>
+                  </div>
+                  {openThread === q.quote_id && <div style={{ marginTop: 14 }}><Thread threadId={q.quote_id} /></div>}
                 </div>
-                <p className="desc">{q.inclusions}</p>
-                <div className="tag-row" style={{ marginTop: 10 }}>
-                  {q.tradie && <span className="tag">★ {q.tradie.rating_avg.toFixed(1)} · {q.tradie.jobs_completed} jobs</span>}
-                  {q.earliest_availability && <span className="tag">from {q.earliest_availability}</span>}
-                  <span className="tag" style={q.status === "accepted" ? { color: "var(--safe)" } : undefined}>{q.status}</span>
-                </div>
-                <div className="row wrap" style={{ marginTop: 12 }}>
-                  {canAccept && q.status === "submitted" && (
-                    <button className="btn sm" disabled={busy} onClick={() => accept(q.quote_id)}>Accept quote</button>
-                  )}
-                  <button className="btn ghost sm" onClick={() => setOpenThread(openThread === q.quote_id ? null : q.quote_id)}>
-                    {openThread === q.quote_id ? "Hide messages" : "Message"}
-                  </button>
-                </div>
-                {openThread === q.quote_id && <div style={{ marginTop: 12 }}><Thread threadId={q.quote_id} /></div>}
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {accepted && job.booking && (
             <div className="card" style={{ marginTop: 16, borderColor: "var(--safe)" }}>
-              <h3>{Icon.tick}Booked with {accepted.tradie?.business_name}</h3>
+              <h3>{Icon.tick}You're booked with {accepted.tradie?.business_name}</h3>
               <dl className="spec">
                 <dt>Status</dt><dd>{job.booking.status}</dd>
-                <dt>Address</dt><dd>{job.full_address ?? "shared with the tradie"}</dd>
+                <dt>Your address</dt><dd>{job.full_address ?? "shared with your tradie"}</dd>
                 {job.booking.scheduled_for && (<><dt>Scheduled</dt><dd>{job.booking.scheduled_for}</dd></>)}
               </dl>
               {job.booking.status === "scheduled" && (
                 <button className="btn sm" style={{ marginTop: 12 }} disabled={busy} onClick={complete}>Mark job completed</button>
               )}
               {job.status === "COMPLETED" && <ReviewForm bookingId={job.booking.id} onDone={load} />}
-              {job.status === "REVIEWED" && <p className="notice" style={{ marginTop: 12 }}>Thanks — your review is in. This job is complete.</p>}
+              {job.status === "REVIEWED" && <p className="notice" style={{ marginTop: 12 }}>Thanks — your review is in. This job is complete. 🎉</p>}
             </div>
           )}
-        </div>
+        </>
       )}
       {err && <p className="err">{err}</p>}
     </div>
@@ -138,7 +163,7 @@ function ReviewForm({ bookingId, onDone }: { bookingId: string; onDone: () => vo
         {[1, 2, 3, 4, 5].map((n) => (
           <button key={n} className="icon-btn" aria-label={`${n} star`}
             style={{ color: n <= rating ? "var(--unclear)" : "var(--faint)", padding: "6px 8px" }}
-            onClick={() => setRating(n)}>{Icon.star}</button>
+            onClick={() => setRating(n)}>{Icon.starFill}</button>
         ))}
       </div>
       <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="How did it go?" style={{ minHeight: 70 }} />

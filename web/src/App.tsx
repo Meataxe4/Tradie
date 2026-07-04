@@ -43,7 +43,7 @@ function TopBar() {
               </>
             )}
             {identity.role === "tradie" && (
-              <NavLink to="/leads" className={({ isActive }) => (isActive ? "active" : "")}>Leads</NavLink>
+              <NavLink to="/leads" className={({ isActive }) => (isActive ? "active" : "")}>Browse jobs</NavLink>
             )}
           </nav>
         )}
