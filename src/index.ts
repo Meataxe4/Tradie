@@ -20,7 +20,12 @@ seed(store);
 await seedDemoJobs(store);
 
 const { client, kind } = createLlmClient();
-const app = createApp({ store, llm: client, staticDir });
+const app = createApp({
+  store,
+  llm: client,
+  staticDir,
+  authSecret: process.env.AUTH_SECRET,
+});
 
 const port = Number(process.env.PORT ?? 3000);
 app.listen(port, () => {

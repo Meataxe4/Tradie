@@ -53,7 +53,7 @@ function TopBar() {
             <>
               <span>{identity.label}</span>
               <span className="role-pill">{identity.role}</span>
-              <button className="icon-btn" onClick={() => { signOut(); nav("/"); }}>Switch</button>
+              <button className="icon-btn" onClick={() => { signOut(); nav("/"); }}>Sign out</button>
             </>
           )}
           <ThemeToggle />

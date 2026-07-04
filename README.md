@@ -62,24 +62,26 @@ identically either way**.
 
 ### Try it
 
-All API routes are under `/api`.
+All API routes are under `/api`. Requests authenticate with a **Bearer token**
+obtained from `/api/auth/login`, `/api/auth/register`, or the one-click
+`/api/auth/demo/:id`.
 
 ```bash
-# Homeowner posts a dead power point → routed to a licensed electrician, no DIY steps
+# 1) Grab a token for a seeded demo account (no password needed)
+TOKEN=$(curl -s -X POST localhost:3000/api/auth/demo/home-1 | node -pe 'JSON.parse(require("fs").readFileSync(0)).token')
+
+# 2) Homeowner posts a dead power point → routed to a licensed electrician, no DIY steps
 curl -s -X POST localhost:3000/api/jobs \
-  -H 'content-type: application/json' -H 'x-user-id: home-1' -H 'x-user-role: homeowner' \
+  -H 'content-type: application/json' -H "authorization: Bearer $TOKEN" \
   -d '{"description":"A power point in the bedroom is dead","photos":["p1"],
        "suburb":"Newtown","postcode":"2042","state":"NSW","full_address":"1 Example St"}'
-
-# Admin runs triage directly (see the model verdict, final verdict and overrides)
-curl -s -X POST localhost:3000/api/triage \
-  -H 'content-type: application/json' -H 'x-user-id: admin-1' -H 'x-user-role: admin' \
-  -d '{"description":"strong gas smell in the kitchen"}'
 ```
 
-Auth is an MVP stub: send `x-user-id` and `x-user-role` (`homeowner` | `tradie` |
-`admin`) headers. Demo users are seeded (`src/seed.ts`): `home-1`, `admin-1`,
-`spark-1` (NSW electrician), `plumb-1` (NSW plumber).
+**Auth** (`src/auth/`): email + password with scrypt-hashed passwords and HS256
+session tokens (Node `crypto`, no external deps). New tradie accounts start
+`pending` and won't match jobs until verified (§10). Seeded demo accounts
+(`src/seed.ts`) are reachable via one-click demo login: `home-1`, `spark-1` (NSW
+electrician), `plumb-1` (NSW plumber), `admin-1`.
 
 ## Architecture
 
@@ -103,6 +105,10 @@ src/
   api/
     app.ts           §8 API surface (Express)
     views.ts         §9 masked read models (suburb-only until a tradie wins)
+  auth/
+    passwords.ts     scrypt password hashing
+    tokens.ts        HS256 JWT sign/verify
+    authService.ts   register / login / demo-login over the store
   store/memoryStore.ts   in-memory data + override & leakage audit logs
   config.ts, seed.ts, index.ts
 
@@ -133,6 +139,8 @@ been driven end-to-end in a real browser in both light and dark themes.
 
 | Group | Endpoint | Notes |
 |---|---|---|
+| Auth | `POST /api/auth/register`, `/login`, `/demo/:id` | returns `{ token, user }` |
+| | `GET /api/me` | current user + profile (Bearer token) |
 | Homeowner | `POST /api/jobs` | create → triage → post/DIY-resolve |
 | | `GET /api/jobs`, `GET /api/jobs/:id` | own jobs; detail incl. triage + booking |
 | | `GET /api/jobs/:id/quotes` | private, sealed quote list |

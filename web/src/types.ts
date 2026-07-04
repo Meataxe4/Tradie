@@ -14,6 +14,27 @@ export interface Identity {
   label: string;
 }
 
+export interface AuthResult {
+  token: string;
+  user: { id: string; role: Role; email: string; name: string };
+}
+
+export interface RegisterInput {
+  email: string;
+  password: string;
+  name: string;
+  role: "homeowner" | "tradie";
+  suburb?: string;
+  postcode?: string;
+  business_name?: string;
+  abn?: string;
+  trades?: string[];
+  state?: string;
+  service_postcodes?: string[];
+  licence_class?: string;
+  licence_number?: string;
+}
+
 export interface DiyGuidance {
   steps: string[];
   tools_required: string[];

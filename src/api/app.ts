@@ -18,6 +18,8 @@ import type { TriageLlmClient } from "../triage/llmClient.js";
 import { matchTradies } from "../domain/matching.js";
 import { homeownerJobView, leadView, quoteView } from "./views.js";
 import type { Role } from "../domain/entities.js";
+import { AuthService, AuthError } from "../auth/authService.js";
+import { verifyToken, TokenError } from "../auth/tokens.js";
 
 export interface AppDeps {
   store: MemoryStore;
@@ -25,27 +27,14 @@ export interface AppDeps {
   clock?: () => string;
   /** Absolute path to the built web frontend (web/dist). Omit in tests. */
   staticDir?: string;
+  /** HS256 signing secret for session tokens. */
+  authSecret?: string;
 }
 
 class HttpError extends Error {
   constructor(public status: number, message: string) {
     super(message);
   }
-}
-
-function auth(req: Request): { id: string; role: Role } {
-  const id = req.header("x-user-id");
-  const role = req.header("x-user-role") as Role | undefined;
-  if (!id || !role) throw new HttpError(401, "Missing x-user-id / x-user-role");
-  return { id, role };
-}
-
-function requireRole(req: Request, ...roles: Role[]) {
-  const user = auth(req);
-  if (!roles.includes(user.role)) {
-    throw new HttpError(403, `Requires role: ${roles.join(" or ")}`);
-  }
-  return user;
 }
 
 /** Read a required path param (typed as possibly-undefined under strict index checks). */
@@ -58,8 +47,31 @@ function param(req: Request, name: string): string {
 export function createApp(deps: AppDeps) {
   const { store } = deps;
   const clock = deps.clock ?? (() => new Date().toISOString());
+  const secret = deps.authSecret ?? "dev-insecure-secret-change-in-production";
   const triageSvc = new TriageService({ llm: deps.llm, clock });
   const market = new MarketplaceService(store, triageSvc, clock);
+  const authSvc = new AuthService(store, secret);
+
+  // Session identity from the Bearer token.
+  const auth = (req: Request): { id: string; role: Role } => {
+    const header = req.header("authorization");
+    if (!header?.startsWith("Bearer ")) throw new HttpError(401, "Sign in to continue");
+    try {
+      const payload = verifyToken(header.slice(7), secret);
+      return { id: payload.sub, role: payload.role as Role };
+    } catch (err) {
+      if (err instanceof TokenError) throw new HttpError(401, "Session expired — please sign in again");
+      throw err;
+    }
+  };
+
+  const requireRole = (req: Request, ...roles: Role[]) => {
+    const user = auth(req);
+    if (!roles.includes(user.role)) {
+      throw new HttpError(403, `Requires role: ${roles.join(" or ")}`);
+    }
+    return user;
+  };
 
   const app = express();
   app.use(express.json({ limit: "2mb" }));
@@ -78,23 +90,48 @@ export function createApp(deps: AppDeps) {
 
   api.get("/health", (_req, res) => res.json({ ok: true }));
 
-  // Demo login picker — the seeded identities (no auth; MVP convenience only).
-  api.get("/demo/identities", wrap((_req, res) => {
-    const identities = [...store.users.values()].map((u) => {
-      const label =
-        u.role === "tradie"
-          ? store.tradies.get(u.id)?.business_name ?? u.email
-          : u.role === "homeowner"
-            ? store.homeowners.get(u.id)?.suburb
-              ? `Homeowner · ${store.homeowners.get(u.id)!.suburb}`
-              : u.email
-            : "Admin";
-      return { id: u.id, role: u.role, label };
+  // ---- auth ----
+  api.post("/auth/register", wrap((req, res) => {
+    const b = req.body ?? {};
+    const result = authSvc.register({
+      email: String(b.email ?? ""),
+      password: String(b.password ?? ""),
+      name: String(b.name ?? ""),
+      role: b.role === "tradie" ? "tradie" : "homeowner",
+      phone: b.phone,
+      suburb: b.suburb,
+      postcode: b.postcode,
+      business_name: b.business_name,
+      abn: b.abn,
+      trades: Array.isArray(b.trades) ? b.trades : undefined,
+      state: b.state,
+      service_postcodes: Array.isArray(b.service_postcodes) ? b.service_postcodes : undefined,
+      licence_class: b.licence_class,
+      licence_number: b.licence_number,
     });
+    res.status(201).json(result);
+  }));
+
+  api.post("/auth/login", wrap((req, res) => {
+    const b = req.body ?? {};
+    res.json(authSvc.login(String(b.email ?? ""), String(b.password ?? "")));
+  }));
+
+  // One-click demo login for the seeded accounts (no password).
+  api.post("/auth/demo/:id", wrap((req, res) => {
+    res.json(authSvc.demoLogin(param(req, "id")));
+  }));
+
+  // The seeded demo accounts, for the "try a demo account" buttons.
+  api.get("/demo/identities", wrap((_req, res) => {
+    const identities = [...store.demoAccountIds]
+      .map((id) => store.users.get(id))
+      .filter((u): u is NonNullable<typeof u> => Boolean(u) && u!.role !== "admin")
+      .map((u) => ({ id: u.id, role: u.role, label: store.displayNames.get(u.id) ?? u.email }));
     res.json(identities);
   }));
 
-  // ---- auth / me ----
+  // ---- me ----
   api.get("/me", wrap((req, res) => {
     const user = auth(req);
     const profile =
@@ -103,7 +140,13 @@ export function createApp(deps: AppDeps) {
         : user.role === "homeowner"
           ? store.homeowners.get(user.id)
           : null;
-    res.json({ id: user.id, role: user.role, user: store.users.get(user.id) ?? null, profile: profile ?? null });
+    res.json({
+      id: user.id,
+      role: user.role,
+      name: store.displayNames.get(user.id) ?? null,
+      user: store.users.get(user.id) ?? null,
+      profile: profile ?? null,
+    });
   }));
 
   // ---- Homeowner ----
@@ -352,7 +395,7 @@ export function createApp(deps: AppDeps) {
 
   // ---- error handler ----
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-    if (err instanceof HttpError) {
+    if (err instanceof HttpError || err instanceof AuthError) {
       res.status(err.status).json({ error: err.message });
     } else {
       const message = err instanceof Error ? err.message : "Internal error";

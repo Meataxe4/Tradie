@@ -87,6 +87,20 @@ export function seed(store: MemoryStore, now = "2026-07-04T00:00:00.000Z"): void
     verified_status: "verified",
     avg_response_minutes: 35,
   });
+
+  // Auth wiring for the seeded accounts. These are reachable via one-click
+  // demo login (no password); registering with the same email is blocked.
+  const demo: Array<[string, string, string]> = [
+    ["home-1", "owner@example.com", "Alex (homeowner)"],
+    ["spark-1", "spark@example.com", "Sam · Inner West Electrical"],
+    ["plumb-1", "plumb@example.com", "Pat · Newtown Plumbing Co"],
+    ["admin-1", "admin@example.com", "Admin"],
+  ];
+  for (const [id, email, name] of demo) {
+    store.usersByEmail.set(email, id);
+    store.displayNames.set(id, name);
+    store.demoAccountIds.add(id);
+  }
 }
 
 /**

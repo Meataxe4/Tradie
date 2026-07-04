@@ -30,6 +30,13 @@ export class MemoryStore {
   bookings = new Map<string, Booking>();
   reviews = new Map<string, Review>();
   licenceVerifications = new Map<string, LicenceVerification>();
+  /** Auth: user_id -> password hash, and lowercased email -> user_id. */
+  credentials = new Map<string, string>();
+  usersByEmail = new Map<string, string>();
+  /** user_id -> display name (person's name, distinct from business_name). */
+  displayNames = new Map<string, string>();
+  /** Seeded demo accounts eligible for one-click demo login. */
+  demoAccountIds = new Set<string>();
   /** §1.7 override audit log — every gate override lands here for review. */
   overrideLog: Array<{ triage_id: string; job_id: string; at: string; overrides: Triage["overrides"] }> = [];
   /** §9 leakage attempt log. */

@@ -54,7 +54,12 @@ Leave this terminal running. It starts two things together:
 
 Go to **http://localhost:5173** in your browser.
 
-1. Pick **Homeowner · Newtown** → click an example problem → **Get triage**.
+You'll see a sign-in screen. Either **create an account** (choose "I need a job
+done" or "I'm a tradie"), or — fastest — click a **demo account** under "or try
+instantly": **Alex** (homeowner), **Sam** (electrician), or **Pat** (plumber).
+
+As a homeowner:
+1. Click an example problem → **Continue** → **Get triage**.
    - *"A power point in the bedroom has stopped working"* → routed to a licensed
      electrician (no DIY steps) + the safety-gate panel.
    - *"My kitchen cabinet door won't close"* → a safe DIY answer with steps.

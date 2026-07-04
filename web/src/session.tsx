@@ -1,10 +1,10 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
-import { getIdentity, setIdentity } from "./api";
-import type { Identity } from "./types";
+import { getIdentity, setIdentity, setToken, storeAuth } from "./api";
+import type { AuthResult, Identity } from "./types";
 
 interface SessionCtx {
   identity: Identity | null;
-  signIn: (id: Identity) => void;
+  signIn: (result: AuthResult) => void;
   signOut: () => void;
 }
 
@@ -16,8 +16,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider
       value={{
         identity,
-        signIn: (id) => { setIdentity(id); setId(id); },
-        signOut: () => { setIdentity(null); setId(null); },
+        signIn: (result) => {
+          storeAuth(result);
+          setId({ id: result.user.id, role: result.user.role, label: result.user.name });
+        },
+        signOut: () => { setToken(null); setIdentity(null); setId(null); },
       }}
     >
       {children}
