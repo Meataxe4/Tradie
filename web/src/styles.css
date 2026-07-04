@@ -1,18 +1,21 @@
+/* Copperline — gunmetal ink + copper accent, warm cream surfaces, teal "verified".
+   Verdict semantics stay distinct: teal=safe, steel=pro, oxide-red=emergency,
+   bronze=unclear. Copper is reserved for brand/CTA, separate from the verdicts. */
 :root {
-  --ground: #f4f6f7;
-  --surface: #ffffff;
-  --surface-2: #eef1f3;
-  --ink: #14181c;
-  --muted: #5c6771;
-  --faint: #8a949e;
-  --hairline: #e0e4e8;
-  --accent: #0e7c7b;
+  --ground: #f5f0e8;
+  --surface: #fdfbf6;
+  --surface-2: #ebe4d6;
+  --ink: #2a2f36;
+  --muted: #82817a;
+  --faint: #a6a299;
+  --hairline: #e2dacb;
+  --accent: #c06a3d;
   --accent-ink: #ffffff;
 
-  --safe: #148a4e; --safe-bg: #e6f5ec;
-  --pro: #4340c4; --pro-bg: #ecebfb;
-  --emergency: #c62a1f; --emergency-bg: #fdeceb;
-  --unclear: #9a6410; --unclear-bg: #fbf1de;
+  --safe: #2c7a72; --safe-bg: #e3efec;
+  --pro: #47596b; --pro-bg: #e7eaed;
+  --emergency: #b23325; --emergency-bg: #f6e3de;
+  --unclear: #8a6a2c; --unclear-bg: #f1e9d4;
 
   --radius: 12px;
   --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
@@ -20,23 +23,23 @@
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --ground: #0e1114; --surface: #161b20; --surface-2: #1e242b; --ink: #eceff2;
-    --muted: #9aa4ae; --faint: #6b7681; --hairline: #272e35; --accent: #2dd4bf; --accent-ink: #04211f;
-    --safe: #46cf82; --safe-bg: #123322; --pro: #9b98f7; --pro-bg: #201f45;
-    --emergency: #ff7065; --emergency-bg: #3a1613; --unclear: #e3ab44; --unclear-bg: #33260f;
+    --ground: #22262c; --surface: #2a2f36; --surface-2: #333942; --ink: #ece7dd;
+    --muted: #9e9c92; --faint: #706d65; --hairline: #383f48; --accent: #d2824f; --accent-ink: #201812;
+    --safe: #3fa396; --safe-bg: #143330; --pro: #90a3b5; --pro-bg: #262e37;
+    --emergency: #e1695b; --emergency-bg: #391a15; --unclear: #cfa25a; --unclear-bg: #33280f;
   }
 }
 :root[data-theme="light"] {
-  --ground: #f4f6f7; --surface: #ffffff; --surface-2: #eef1f3; --ink: #14181c;
-  --muted: #5c6771; --faint: #8a949e; --hairline: #e0e4e8; --accent: #0e7c7b; --accent-ink: #fff;
-  --safe: #148a4e; --safe-bg: #e6f5ec; --pro: #4340c4; --pro-bg: #ecebfb;
-  --emergency: #c62a1f; --emergency-bg: #fdeceb; --unclear: #9a6410; --unclear-bg: #fbf1de;
+  --ground: #f5f0e8; --surface: #fdfbf6; --surface-2: #ebe4d6; --ink: #2a2f36;
+  --muted: #82817a; --faint: #a6a299; --hairline: #e2dacb; --accent: #c06a3d; --accent-ink: #fff;
+  --safe: #2c7a72; --safe-bg: #e3efec; --pro: #47596b; --pro-bg: #e7eaed;
+  --emergency: #b23325; --emergency-bg: #f6e3de; --unclear: #8a6a2c; --unclear-bg: #f1e9d4;
 }
 :root[data-theme="dark"] {
-  --ground: #0e1114; --surface: #161b20; --surface-2: #1e242b; --ink: #eceff2;
-  --muted: #9aa4ae; --faint: #6b7681; --hairline: #272e35; --accent: #2dd4bf; --accent-ink: #04211f;
-  --safe: #46cf82; --safe-bg: #123322; --pro: #9b98f7; --pro-bg: #201f45;
-  --emergency: #ff7065; --emergency-bg: #3a1613; --unclear: #e3ab44; --unclear-bg: #33260f;
+  --ground: #22262c; --surface: #2a2f36; --surface-2: #333942; --ink: #ece7dd;
+  --muted: #9e9c92; --faint: #706d65; --hairline: #383f48; --accent: #d2824f; --accent-ink: #201812;
+  --safe: #3fa396; --safe-bg: #143330; --pro: #90a3b5; --pro-bg: #262e37;
+  --emergency: #e1695b; --emergency-bg: #391a15; --unclear: #cfa25a; --unclear-bg: #33280f;
 }
 
 * { box-sizing: border-box; }
