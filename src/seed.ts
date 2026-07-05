@@ -8,6 +8,24 @@ import { TriageService } from "./triage/triageService.js";
 import { MockTriageClient } from "./triage/llmClient.js";
 
 export function seed(store: MemoryStore, now = "2026-07-04T00:00:00.000Z"): void {
+  // Demo auth wiring — runs every boot (demoAccountIds is in-memory), so
+  // one-click demo login keeps working even against a persisted database.
+  const demoAccounts: Array<[string, string, string]> = [
+    ["home-1", "owner@example.com", "Alex (homeowner)"],
+    ["spark-1", "spark@example.com", "Sam · Inner West Electrical"],
+    ["plumb-1", "plumb@example.com", "Pat · Newtown Plumbing Co"],
+    ["admin-1", "admin@example.com", "Admin"],
+  ];
+  for (const [id, email, name] of demoAccounts) {
+    store.usersByEmail.set(email, id);
+    store.displayNames.set(id, name);
+    store.demoAccountIds.add(id);
+  }
+
+  // Entity creation — only on a fresh store, so a persisted DB keeps any
+  // updated demo state (e.g. tradie ratings) instead of being reset each boot.
+  if (store.users.has("home-1")) return;
+
   store.users.set("home-1", {
     id: "home-1",
     role: "homeowner",
@@ -87,20 +105,6 @@ export function seed(store: MemoryStore, now = "2026-07-04T00:00:00.000Z"): void
     verified_status: "verified",
     avg_response_minutes: 35,
   });
-
-  // Auth wiring for the seeded accounts. These are reachable via one-click
-  // demo login (no password); registering with the same email is blocked.
-  const demo: Array<[string, string, string]> = [
-    ["home-1", "owner@example.com", "Alex (homeowner)"],
-    ["spark-1", "spark@example.com", "Sam · Inner West Electrical"],
-    ["plumb-1", "plumb@example.com", "Pat · Newtown Plumbing Co"],
-    ["admin-1", "admin@example.com", "Admin"],
-  ];
-  for (const [id, email, name] of demo) {
-    store.usersByEmail.set(email, id);
-    store.displayNames.set(id, name);
-    store.demoAccountIds.add(id);
-  }
 }
 
 /**
@@ -112,6 +116,10 @@ export function seed(store: MemoryStore, now = "2026-07-04T00:00:00.000Z"): void
  * Only used by the app entrypoint — tests seed with `seed()` alone.
  */
 export async function seedDemoJobs(store: MemoryStore): Promise<void> {
+  // Idempotent: if a job already exists (e.g. from a persisted DB), do nothing,
+  // so demo jobs aren't duplicated on every restart.
+  if (store.jobs.size > 0) return;
+
   let cursor = Date.now() - 8 * 3600 * 1000; // start 8h ago
   const clock = () => new Date(cursor).toISOString();
   const market = new MarketplaceService(

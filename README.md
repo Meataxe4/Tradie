@@ -55,6 +55,11 @@ npm run build:web   # builds web/ into web/dist
 npm start           # Express serves the API *and* the built UI on :3000
 ```
 
+**Persistence:** state is stored in SQLite at `./data/squiz.db` by default and
+**survives restarts** — accounts, jobs, quotes and bookings are all durable. Set
+`SQLITE_PATH` to change the file, or `SQLITE_PATH=off` (or `:memory:`) to run
+without a database. Tests use in-memory Maps, so they stay fast and isolated.
+
 No API key is required: with no `ANTHROPIC_API_KEY` the app uses a deterministic,
 keyword-driven mock triage client so the whole loop runs offline. Set the key
 (see `.env.example`) to route triage through a real Claude model — the **gate runs
@@ -109,7 +114,9 @@ src/
     passwords.ts     scrypt password hashing
     tokens.ts        HS256 JWT sign/verify
     authService.ts   register / login / demo-login over the store
-  store/memoryStore.ts   in-memory data + override & leakage audit logs
+  store/
+    kvMap.ts         Map-compatible interface + SqlMap (better-sqlite3 backed)
+    memoryStore.ts   the collections; native Maps, or SqlMaps when given a DB
   config.ts, seed.ts, index.ts
 
 web/               REACT FRONTEND (Vite + TypeScript)
@@ -159,8 +166,9 @@ been driven end-to-end in a real browser in both light and dark themes.
 These were left open in the spec; sensible defaults were chosen to keep building
 and are easy to revisit:
 
-- **Stack:** TypeScript + Node + Express + Vitest, in-memory store (swap for
-  Postgres later — services depend only on `MemoryStore`'s methods).
+- **Stack:** TypeScript + Node + Express + Vitest. **Persistence via SQLite**
+  (better-sqlite3) behind a Map-compatible interface, so the whole synchronous
+  codebase is durable without an async rewrite; tests run on in-memory Maps.
 - **Conservative AI line (§1):** adopted as non-negotiable and enforced in the gate.
 - **Homeowner anonymous pre-acceptance:** yes (suburb only; address revealed to
   the winning tradie on `BOOKED`).

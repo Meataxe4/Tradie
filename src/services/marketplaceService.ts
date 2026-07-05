@@ -160,10 +160,12 @@ export class MarketplaceService {
 
     assertQuoteTransition(quote.status, "accepted");
     quote.status = "accepted";
+    this.store.quotes.set(quote.id, quote);
 
     for (const other of this.store.quotesForJob(job.id)) {
       if (other.id !== quote.id && other.status === "submitted") {
         other.status = "declined";
+        this.store.quotes.set(other.id, other);
       }
     }
 
@@ -214,6 +216,7 @@ export class MarketplaceService {
   completeBooking(bookingId: string): Booking {
     const booking = this.mustBooking(bookingId);
     booking.status = "completed";
+    this.store.bookings.set(booking.id, booking);
     const job = this.mustJob(booking.job_id);
     this.transitionJob(job, "COMPLETED");
     return booking;
@@ -244,6 +247,7 @@ export class MarketplaceService {
       const total = tradie.rating_avg * tradie.jobs_completed + args.rating;
       tradie.jobs_completed += 1;
       tradie.rating_avg = total / tradie.jobs_completed;
+      this.store.tradies.set(tradie.user_id, tradie);
     }
     return review;
   }
@@ -251,6 +255,7 @@ export class MarketplaceService {
   private transitionJob(job: Job, to: Job["status"]): void {
     assertJobTransition(job.status, to);
     job.status = to;
+    this.store.jobs.set(job.id, job); // persist (SqlMap needs the write-back)
   }
 
   private mustJob(id: string): Job {
