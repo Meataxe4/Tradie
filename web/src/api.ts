@@ -54,19 +54,35 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   });
+  const contentType = res.headers.get("content-type") ?? "";
+  const isJson = contentType.includes("application/json");
+
   if (!res.ok) {
     let message = res.statusText;
-    try {
-      const data = await res.json();
-      if (data?.error) message = data.error;
-    } catch {
-      /* ignore */
+    if (isJson) {
+      try {
+        const data = await res.json();
+        if (data?.error) message = data.error;
+      } catch {
+        /* ignore */
+      }
     }
     // A dead/expired token: drop it so the app returns to the sign-in screen.
     if (res.status === 401) { setToken(null); setIdentity(null); }
     throw new ApiError(res.status, message);
   }
   if (res.status === 204) return undefined as T;
+
+  // A non-JSON 200 means the request hit the SPA fallback (index.html), not the
+  // API — usually a stale/missing web build or the API being unreachable. Give a
+  // clear message instead of a raw "Unexpected token '<'" JSON-parse error.
+  if (!isJson) {
+    throw new ApiError(
+      res.status,
+      "The server returned the app page instead of data. The API isn't reachable at this URL — " +
+        "rebuild the frontend (npm run build:web) and restart, or run `npm run dev`.",
+    );
+  }
   return (await res.json()) as T;
 }
 
