@@ -6,10 +6,8 @@
 import { v4 as uuidv4 } from "uuid";
 import { MemoryStore } from "../store/memoryStore.js";
 import { TriageService } from "../triage/triageService.js";
-import {
-  matchTradies,
-  type MatchedTradie,
-} from "../domain/matching.js";
+import { assignBestTradie } from "../domain/matching.js";
+import { priceBookLookup } from "../domain/priceBook.js";
 import { maskContactInfo } from "../domain/contactMasking.js";
 import {
   assertJobTransition,
@@ -22,7 +20,9 @@ import type {
   Message,
   MessageSenderRole,
   Quote,
+  QuoteKind,
   Review,
+  TradieProfile,
   Triage,
 } from "../domain/entities.js";
 import type { Category } from "../triage/schema.js";
@@ -41,7 +41,10 @@ export interface CreateJobInput {
 export interface CreateJobResult {
   job: Job;
   triage: Triage;
-  matched: MatchedTradie[];
+  /** The single vetted trade the job was assigned to (§3), or null if none. */
+  assigned: TradieProfile | null;
+  /** The instant firm quote when it's a price-book job; null for custom/DIY. */
+  quote: Quote | null;
 }
 
 export class MarketplaceService {
@@ -99,25 +102,63 @@ export class MarketplaceService {
       });
     }
 
-    // TRIAGED, then branch: DIY_SAFE is terminal; everything else posts for quotes.
     this.transitionJob(job, "TRIAGED");
-    let matched: MatchedTradie[] = [];
+    let assigned: TradieProfile | null = null;
+    let quote: Quote | null = null;
+
     if (result.verdict === "DIY_SAFE") {
       this.transitionJob(job, "DIY_RESOLVED");
     } else {
-      this.transitionJob(job, "POSTED");
-      matched = matchTradies(job, result, this.store.allTradies(), {
-        now,
-        cap: 4,
-      });
-      // Notification is a stub (§7 push + SMS/email would go here).
-      if (matched.length > 0) this.transitionJob(job, "QUOTING");
+      // §3 assign ONE vetted trade (assigned, not auctioned).
+      assigned = assignBestTradie(job, result, this.store.allTradies(), { now });
+      if (assigned) job.assigned_tradie_id = assigned.user_id;
+
+      // Price-book match → instant firm quote; otherwise route as a custom quote.
+      const pb = assigned
+        ? priceBookLookup(job.category, `${input.description} ${result.job_spec?.title ?? ""}`)
+        : null;
+      if (assigned && pb) {
+        job.quote_kind = "price_book";
+        job.price_book_key = pb.key;
+        quote = this.createFirmQuote(job, assigned.user_id, "price_book", pb.amount, pb.label, now);
+        this.transitionJob(job, "QUOTED");
+      } else {
+        job.quote_kind = "custom";
+        this.transitionJob(job, "AWAITING_QUOTE");
+      }
     }
 
-    return { job, triage, matched };
+    return { job, triage, assigned, quote };
   }
 
-  submitQuote(args: {
+  /** Create the single firm quote for a job (price-book or custom) + its thread. */
+  private createFirmQuote(
+    job: Job,
+    tradieId: string,
+    kind: QuoteKind,
+    amount: number,
+    inclusions: string,
+    now: string,
+    availability?: string,
+  ): Quote {
+    const quote: Quote = {
+      id: uuidv4(),
+      job_id: job.id,
+      tradie_id: tradieId,
+      kind,
+      amount,
+      inclusions,
+      earliest_availability: availability,
+      status: "offered",
+      created_at: now,
+    };
+    this.store.quotes.set(quote.id, quote);
+    this.store.threads.set(quote.id, { id: quote.id, quote_id: quote.id, job_id: job.id });
+    return quote;
+  }
+
+  /** The assigned trade returns a firm quote for their custom (routed) job. */
+  submitFirmQuote(args: {
     job_id: string;
     tradie_id: string;
     amount: number;
@@ -125,34 +166,40 @@ export class MarketplaceService {
     earliest_availability?: string;
   }): Quote {
     const job = this.mustJob(args.job_id);
-    if (job.status !== "POSTED" && job.status !== "QUOTING") {
-      throw new Error(`Job ${job.id} is not accepting quotes (status ${job.status})`);
+    if (job.assigned_tradie_id !== args.tradie_id) {
+      throw new Error("This job isn't assigned to you");
     }
-    const quote: Quote = {
-      id: uuidv4(),
-      job_id: args.job_id,
-      tradie_id: args.tradie_id,
-      amount: args.amount,
-      inclusions: args.inclusions,
-      earliest_availability: args.earliest_availability,
-      status: "submitted",
-      created_at: this.clock(),
-    };
-    this.store.quotes.set(quote.id, quote);
-    if (job.status === "POSTED") this.transitionJob(job, "QUOTING");
-
-    // Sealed quote → open a masked thread for this quote (§9).
-    this.store.threads.set(quote.id, {
-      id: quote.id,
-      quote_id: quote.id,
-      job_id: job.id,
-    });
+    if (job.status !== "AWAITING_QUOTE") {
+      throw new Error(`Job ${job.id} isn't awaiting a quote (status ${job.status})`);
+    }
+    const quote = this.createFirmQuote(
+      job,
+      args.tradie_id,
+      "custom",
+      args.amount,
+      args.inclusions,
+      this.clock(),
+      args.earliest_availability,
+    );
+    this.transitionJob(job, "QUOTED");
     return quote;
   }
 
+  /** Legacy alias retained for older call sites; forwards to submitFirmQuote. */
+  submitQuote(args: {
+    job_id: string;
+    tradie_id: string;
+    amount: number;
+    inclusions: string;
+    earliest_availability?: string;
+  }): Quote {
+    return this.submitFirmQuote(args);
+  }
+
   /**
-   * Accept a quote (§6): auto-decline the rest, reveal the address to the
-   * winner only, and create the booking.
+   * Accept the firm quote (§3 "one quote, one tap"): book the job and reveal the
+   * address to the assigned trade only. Payment authorisation is layered on top
+   * of this by the payments service.
    */
   acceptQuote(quoteId: string): { quote: Quote; booking: Booking } {
     const quote = this.mustQuote(quoteId);
@@ -162,14 +209,7 @@ export class MarketplaceService {
     quote.status = "accepted";
     this.store.quotes.set(quote.id, quote);
 
-    for (const other of this.store.quotesForJob(job.id)) {
-      if (other.id !== quote.id && other.status === "submitted") {
-        other.status = "declined";
-        this.store.quotes.set(other.id, other);
-      }
-    }
-
-    this.transitionJob(job, "QUOTE_ACCEPTED");
+    this.transitionJob(job, "BOOKED");
 
     const booking: Booking = {
       id: uuidv4(),
@@ -180,10 +220,18 @@ export class MarketplaceService {
       scheduled_for: quote.earliest_availability,
     };
     this.store.bookings.set(booking.id, booking);
-    this.transitionJob(job, "BOOKED");
-    // Address is now revealed to the winning tradie only — enforced at the read
-    // layer (leadView) by checking booking ownership.
     return { quote, booking };
+  }
+
+  /** Customer declines the firm quote — the job is closed. */
+  declineQuote(quoteId: string): Quote {
+    const quote = this.mustQuote(quoteId);
+    const job = this.mustJob(quote.job_id);
+    assertQuoteTransition(quote.status, "declined");
+    quote.status = "declined";
+    this.store.quotes.set(quote.id, quote);
+    this.transitionJob(job, "DECLINED");
+    return quote;
   }
 
   postMessage(args: {

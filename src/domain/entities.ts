@@ -56,19 +56,22 @@ export interface TradieProfile {
   avg_response_minutes?: number;
 }
 
-// §6 Job state machine.
+// §6 Job state machine — "assigned, not auctioned": a job is assigned to ONE
+// vetted trade with a firm quote (price-book instant, or routed custom).
 export type JobStatus =
   | "DRAFT"
   | "TRIAGED"
-  | "DIY_RESOLVED"
-  | "POSTED"
-  | "QUOTING"
-  | "QUOTE_ACCEPTED"
+  | "DIY_RESOLVED" // safe DIY, terminal
+  | "AWAITING_QUOTE" // custom job assigned to a trade; awaiting their firm quote
+  | "QUOTED" // a firm quote is ready for the customer to accept
   | "BOOKED"
   | "COMPLETED"
   | "REVIEWED"
+  | "DECLINED" // customer declined the quote, terminal
   | "CANCELLED"
   | "EXPIRED";
+
+export type QuoteKind = "price_book" | "custom";
 
 export interface Job {
   id: string;
@@ -79,10 +82,16 @@ export interface Job {
   suburb: string;
   postcode: string;
   state: AustralianState;
-  /** Revealed to the winning tradie only, on BOOKED (§9). */
+  /** Revealed to the assigned trade only, on BOOKED (§9). */
   full_address?: string;
   urgency: Urgency;
   status: JobStatus;
+  /** The single vetted trade this job is assigned to (§3: assigned, not auctioned). */
+  assigned_tradie_id?: string;
+  /** How the quote is produced: instant from the price book, or a custom quote. */
+  quote_kind?: QuoteKind;
+  /** Price-book item key when quote_kind === "price_book". */
+  price_book_key?: string;
   created_at: string;
 }
 
@@ -96,9 +105,9 @@ export interface Triage {
   created_at: string;
 }
 
-// §6 Quote state machine.
+// §6 Quote state machine. One firm quote per job (from the assigned trade).
 export type QuoteStatus =
-  | "submitted"
+  | "offered"
   | "accepted"
   | "declined"
   | "withdrawn"
@@ -108,7 +117,8 @@ export interface Quote {
   id: string;
   job_id: string;
   tradie_id: string;
-  amount: number; // AUD cents
+  kind: QuoteKind;
+  amount: number; // AUD cents, GST-inclusive — the firm price the customer pays
   inclusions: string;
   earliest_availability?: string;
   status: QuoteStatus;

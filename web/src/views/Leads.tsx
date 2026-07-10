@@ -59,11 +59,11 @@ export function Leads() {
 
   return (
     <div>
-      <p className="eyebrow">Browse jobs</p>
-      <h1 className="page-title">Jobs matched to you</h1>
+      <p className="eyebrow">Your work</p>
+      <h1 className="page-title">Jobs assigned to you</h1>
       <p className="page-sub">
-        Only jobs in your trade, service area and verified licence class. No pay-to-quote — and the homeowner
-        stays private until you win the work.
+        Pre-qualified jobs assigned to you — not auctioned. No pay-per-lead, no bidding wars. Send one firm
+        quote (or just turn up for price-book work); the customer's details stay private until you're booked.
       </p>
 
       {leads.length > 0 && (
@@ -138,10 +138,16 @@ export function Leads() {
               </div>
               <div className="fc-foot">
                 <span style={{ fontSize: 13, color: "var(--muted)" }}>
-                  {l.quote_count === 0 ? "Be the first to quote" : `${l.quote_count} quote${l.quote_count === 1 ? "" : "s"} so far`}
+                  {l.status === "AWAITING_QUOTE"
+                    ? "Assigned to you — send a firm quote"
+                    : l.status === "QUOTED"
+                      ? "Quoted — waiting on the customer"
+                      : l.status === "BOOKED"
+                        ? "Booked"
+                        : "Assigned to you"}
                 </span>
                 {l.my_quote
-                  ? <span className="offer-status accepted" style={{ background: "var(--safe-bg)", color: "var(--safe)" }}>You quoted {money(l.my_quote.amount)}</span>
+                  ? <span className="offer-status accepted" style={{ background: "var(--safe-bg)", color: "var(--safe)" }}>Your price {money(l.my_quote.amount)}</span>
                   : <span className="btn sm" style={{ pointerEvents: "none" }}>View &amp; quote →</span>}
               </div>
             </Link>

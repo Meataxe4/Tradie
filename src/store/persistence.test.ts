@@ -32,7 +32,7 @@ describe("SQLite persistence survives a reopen (simulated restart)", () => {
       homeowner_id: reg.user.id, description: "A power point in the bedroom is dead",
       photos: [], suburb: "Newtown", postcode: "2042", state: "NSW",
     });
-    expect(["POSTED", "QUOTING"]).toContain(store1.jobs.get(job.id)?.status);
+    expect(["AWAITING_QUOTE", "QUOTED"]).toContain(store1.jobs.get(job.id)?.status);
     db1.close();
 
     // Second "process": reopen the same file — data must still be there.
@@ -64,15 +64,16 @@ describe("SQLite persistence survives a reopen (simulated restart)", () => {
       insurance: {}, service_postcodes: ["2042"], rating_avg: 5, jobs_completed: 1, verified_status: "verified",
     });
     store1.users.set("h1", { id: "h1", role: "homeowner", email: "h@x.com", created_at: NOW, status: "active" });
-    const { job } = await market1.createJob({ homeowner_id: "h1", description: "dead power point", photos: [], suburb: "Newtown", postcode: "2042", state: "NSW" });
-    const q = market1.submitQuote({ job_id: job.id, tradie_id: "t1", amount: 15000, inclusions: "x" });
-    market1.acceptQuote(q.id);
+    const { job, quote } = await market1.createJob({ homeowner_id: "h1", description: "dead power point", photos: [], suburb: "Newtown", postcode: "2042", state: "NSW" });
+    // Price-book job → instant firm quote assigned to t1; accept it.
+    expect(quote?.tradie_id).toBe("t1");
+    market1.acceptQuote(quote!.id);
     db1.close();
 
     const db2 = new Database(file);
     const store2 = new MemoryStore(db2);
     expect(store2.jobs.get(job.id)?.status).toBe("BOOKED");
-    expect(store2.quotes.get(q.id)?.status).toBe("accepted");
+    expect(store2.quotes.get(quote!.id)?.status).toBe("accepted");
     expect([...store2.bookings.values()].some((b) => b.job_id === job.id)).toBe(true);
     db2.close();
   });

@@ -100,7 +100,8 @@ export interface CreateJobResponse {
   triage: TriageResult;
   overrides: Override[];
   model_verdict: Verdict;
-  matched_tradies: string[];
+  assigned_tradie: TradieSummary | null;
+  quote: Quote | null;
 }
 
 export interface TradieSummary {
@@ -120,6 +121,7 @@ export interface Quote {
   quote_id: string;
   job_id: string;
   tradie: TradieSummary | null;
+  kind?: "price_book" | "custom";
   amount: number;
   inclusions: string;
   earliest_availability?: string;
@@ -140,6 +142,8 @@ export interface Lead {
   photos: string[];
   created_at: string;
   quote_count: number;
+  quote_kind: "price_book" | "custom" | null;
+  assigned_to_me: boolean;
   poster: { suburb: string; member_since: string | null; verified: boolean };
   my_quote: Quote | null;
 }

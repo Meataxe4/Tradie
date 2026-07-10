@@ -46,9 +46,12 @@ export function JobDetail() {
   if (!job) return <Spinner />;
 
   const accepted = quotes.find((q) => q.status === "accepted");
-  const canAccept = ["QUOTING", "POSTED"].includes(job.status);
+  const canAccept = job.status === "QUOTED";
   const live = quotes.filter((q) => q.status !== "declined");
   const isPro = job.status !== "DIY_RESOLVED" && job.status !== "DRAFT";
+  const awaiting = job.status === "AWAITING_QUOTE";
+  const priceBook = job.triage?.recommended_trade;
+  const assignedName = live[0]?.tradie?.business_name;
 
   return (
     <div>
@@ -71,7 +74,7 @@ export function JobDetail() {
           {/* Quotes are the star of this screen (Airtasker-style). Triage is tucked behind a toggle. */}
           <div className="row" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <p className="eyebrow" style={{ margin: 0 }}>
-              {accepted ? "Your booking" : `${live.filter((q) => q.status === "submitted").length} quote${live.filter((q) => q.status === "submitted").length === 1 ? "" : "s"} so far`}
+              {accepted ? "Your booking" : awaiting ? "Getting your quote" : "Your firm quote"}
             </p>
             <button className="btn ghost sm" onClick={() => setShowTriage((s) => !s)}>
               {showTriage ? "Hide triage details" : "View triage details"}
@@ -80,10 +83,11 @@ export function JobDetail() {
 
           {showTriage && job.triage && <div style={{ marginBottom: 18 }}><TriageView triage={job.triage} /></div>}
 
-          {live.length === 0 && (
+          {awaiting && (
             <div className="notice" style={{ marginBottom: 16 }}>
-              No quotes yet — verified tradies matched to this job have been notified and quote privately.
-              Sealed, so no tradie sees another's price.
+              {assignedName
+                ? `We've assigned ${assignedName} — a vetted, licensed ${(priceBook ?? "trade").replace("_", " ")}. They have all your details and will send one firm price shortly. No bidding wars, no chasing.`
+                : `We're assigning a vetted, licensed ${(priceBook ?? "trade").replace("_", " ")} in your area — your firm quote will appear here shortly.`}
             </div>
           )}
 
@@ -107,10 +111,13 @@ export function JobDetail() {
                     </div>
                   </div>
                   <p className="offer-incl">{q.inclusions}</p>
+                  {q.kind === "price_book" && (
+                    <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "6px 0 0" }}>Firm, GST-inclusive price from our price book — no site visit needed.</p>
+                  )}
                   {t && <TrustRow tradie={t} />}
                   <div className="offer-actions">
-                    {canAccept && q.status === "submitted" && (
-                      <button className="btn sm" disabled={busy} onClick={() => accept(q.quote_id)}>Accept quote</button>
+                    {canAccept && q.status === "offered" && (
+                      <button className="btn sm" disabled={busy} onClick={() => accept(q.quote_id)}>Accept &amp; book</button>
                     )}
                     {q.status === "accepted" && <span className="offer-status accepted">✓ Booked</span>}
                     <button className="btn ghost sm" onClick={() => setOpenThread(openThread === q.quote_id ? null : q.quote_id)}>

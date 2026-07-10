@@ -90,13 +90,13 @@ function fmtMins(m: number): string {
 }
 
 const JOB_STEPS = [
-  { key: "POSTED", label: "Posted" },
-  { key: "QUOTING", label: "Quotes in" },
+  { key: "ASSIGNED", label: "Assigned" },
+  { key: "QUOTED", label: "Quoted" },
   { key: "BOOKED", label: "Booked" },
   { key: "COMPLETED", label: "Done" },
 ];
 const STEP_INDEX: Record<string, number> = {
-  POSTED: 0, QUOTING: 1, QUOTE_ACCEPTED: 2, BOOKED: 2, COMPLETED: 3, REVIEWED: 3,
+  TRIAGED: 0, AWAITING_QUOTE: 0, QUOTED: 1, BOOKED: 2, COMPLETED: 3, REVIEWED: 3,
 };
 
 export function Stepper({ status }: { status: string }) {

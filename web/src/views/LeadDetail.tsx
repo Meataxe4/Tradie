@@ -101,8 +101,8 @@ function QuoteForm({ jobId, onDone }: { jobId: string; onDone: () => void }) {
 
   return (
     <div className="card">
-      <h3>{Icon.pro}Send a sealed quote</h3>
-      <p className="notice" style={{ marginBottom: 14 }}>Your price is private — the homeowner sees it, no other tradie does.</p>
+      <h3>{Icon.pro}Send your firm quote</h3>
+      <p className="notice" style={{ marginBottom: 14 }}>This job's assigned to you — no bidding war. Give one firm, GST-inclusive price. Payment is held on booking and lands automatically when the job's done.</p>
       <div className="grid two">
         <label className="field"><span className="lbl">Your price (AUD)</span>
           <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /></label>

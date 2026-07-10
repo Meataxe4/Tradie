@@ -6,20 +6,20 @@ import type { JobStatus, QuoteStatus } from "./entities.js";
 
 const JOB_TRANSITIONS: Record<JobStatus, JobStatus[]> = {
   DRAFT: ["TRIAGED", "CANCELLED"],
-  TRIAGED: ["DIY_RESOLVED", "POSTED", "CANCELLED"],
+  TRIAGED: ["DIY_RESOLVED", "AWAITING_QUOTE", "QUOTED", "CANCELLED"],
   DIY_RESOLVED: [], // terminal
-  POSTED: ["QUOTING", "CANCELLED", "EXPIRED"],
-  QUOTING: ["QUOTE_ACCEPTED", "CANCELLED", "EXPIRED"],
-  QUOTE_ACCEPTED: ["BOOKED", "CANCELLED"],
+  AWAITING_QUOTE: ["QUOTED", "CANCELLED", "EXPIRED"],
+  QUOTED: ["BOOKED", "DECLINED", "CANCELLED", "EXPIRED"],
   BOOKED: ["COMPLETED", "CANCELLED"],
   COMPLETED: ["REVIEWED"],
   REVIEWED: [], // terminal
+  DECLINED: [], // terminal
   CANCELLED: [], // terminal
   EXPIRED: [], // terminal
 };
 
 const QUOTE_TRANSITIONS: Record<QuoteStatus, QuoteStatus[]> = {
-  submitted: ["accepted", "declined", "withdrawn", "expired"],
+  offered: ["accepted", "declined", "withdrawn", "expired"],
   accepted: [],
   declined: [],
   withdrawn: [],

@@ -15,8 +15,7 @@ import { MemoryStore } from "../store/memoryStore.js";
 import { MarketplaceService } from "../services/marketplaceService.js";
 import { TriageService } from "../triage/triageService.js";
 import type { TriageLlmClient } from "../triage/llmClient.js";
-import { matchTradies } from "../domain/matching.js";
-import { homeownerJobView, leadView, quoteView } from "./views.js";
+import { homeownerJobView, leadView, quoteView, tradieSummary } from "./views.js";
 import type { Role } from "../domain/entities.js";
 import { AuthService, AuthError } from "../auth/authService.js";
 import { verifyToken, TokenError } from "../auth/tokens.js";
@@ -172,7 +171,8 @@ export function createApp(deps: AppDeps) {
       triage: result.triage.result,
       overrides: result.triage.overrides,
       model_verdict: result.triage.model_verdict,
-      matched_tradies: result.matched.map((m) => m.tradie.user_id),
+      assigned_tradie: result.assigned ? tradieSummary(store, result.assigned.user_id) : null,
+      quote: result.quote ? quoteView(result.quote, store) : null,
     });
   }));
 
@@ -229,22 +229,16 @@ export function createApp(deps: AppDeps) {
   }));
 
   // ---- Tradie ----
-  // GET /leads — matched jobs, homeowner masked.
+  // GET /leads — jobs ASSIGNED to this trade (§3 assigned, not auctioned), homeowner masked.
   api.get("/leads", wrap((req, res) => {
     const user = requireRole(req, "tradie");
     const tradie = store.tradies.get(user.id);
     if (!tradie) throw new HttpError(404, "Tradie profile not found");
-    const now = clock();
+    const ACTIVE = new Set(["AWAITING_QUOTE", "QUOTED", "BOOKED"]);
     const leads = [...store.jobs.values()]
-      .filter((j) => j.status === "POSTED" || j.status === "QUOTING")
-      .filter((j) => {
-        const triageId = store.triageByJob.get(j.id);
-        const triage = triageId ? store.triages.get(triageId) : undefined;
-        if (!triage) return false;
-        return matchTradies(j, triage.result, [tradie], { now, cap: 1 }).length > 0;
-      })
+      .filter((j) => j.assigned_tradie_id === user.id && ACTIVE.has(j.status))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .map((j) => {
-        // Has this tradie already quoted? Surface it so the UI can link the thread.
         const mine = store.quotesForJob(j.id).find((q) => q.tradie_id === user.id);
         return { ...leadView(store, j, user.id), my_quote: mine ? quoteView(mine, store) : null };
       });
@@ -260,19 +254,18 @@ export function createApp(deps: AppDeps) {
     res.json({ ...leadView(store, job, user.id), my_quote: mine ? quoteView(mine, store) : null });
   }));
 
-  // POST /jobs/:id/quotes — submit a sealed quote.
+  // POST /jobs/:id/quotes — the assigned trade returns a firm quote (custom job).
   api.post("/jobs/:id/quotes", wrap((req, res) => {
     const user = requireRole(req, "tradie");
     const b = req.body ?? {};
     if (typeof b.amount !== "number") throw new HttpError(400, "amount (number, AUD cents) required");
-    const quote = market.submitQuote({
+    const quote = market.submitFirmQuote({
       job_id: param(req, "id"),
       tradie_id: user.id,
       amount: b.amount,
       inclusions: String(b.inclusions ?? ""),
       earliest_availability: b.earliest_availability,
     });
-    // Return the tradie's own quote only — never other tradies' sealed quotes.
     res.status(201).json({ quote_id: quote.id, status: quote.status, thread_id: quote.id });
   }));
 

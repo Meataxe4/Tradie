@@ -53,19 +53,23 @@ export function NewJob() {
 
   // ---- result screen ----
   if (result) {
-    const posted = result.triage.verdict !== "DIY_SAFE";
+    const isPro = result.triage.verdict !== "DIY_SAFE";
+    const trade = result.triage.recommended_trade.replace("_", " ");
+    const sub = !isPro
+      ? "Good news — this is a safe DIY job, so there's nothing to book."
+      : result.quote
+        ? `We've assigned ${result.assigned_tradie?.business_name ?? `a vetted ${trade}`} and prepared a firm price from our price book. Review and accept in a tap.`
+        : result.assigned_tradie
+          ? `We've assigned ${result.assigned_tradie.business_name} — they'll send you a firm quote shortly, with all the detail you gave us.`
+          : `We'll assign a vetted local ${trade} and get you a firm quote shortly.`;
     return (
       <div>
-        <p className="eyebrow">Your triage result</p>
+        <p className="eyebrow">Your concierge result</p>
         <h1 className="page-title">{result.triage.job_spec?.title ?? `${result.job.category} · ${result.job.suburb}`}</h1>
-        <p className="page-sub">
-          {posted
-            ? `We've matched and notified ${result.matched_tradies.length} verified ${result.triage.recommended_trade.replace("_", " ")}${result.matched_tradies.length === 1 ? "" : "s"}. Private quotes will appear on your job.`
-            : "Good news — this is a safe DIY job, so there's nothing to book."}
-        </p>
+        <p className="page-sub">{sub}</p>
         <TriageView triage={result.triage} overrides={result.overrides} modelVerdict={result.model_verdict} />
         <div className="row wrap" style={{ marginTop: 18 }}>
-          {posted && <button className="btn" onClick={() => nav(`/jobs/${result.job.id}`)}>View job & quotes →</button>}
+          {isPro && <button className="btn" onClick={() => nav(`/jobs/${result.job.id}`)}>{result.quote ? "View your quote →" : "View job →"}</button>}
           <button className="btn ghost" onClick={() => { setResult(null); setDescription(""); setStep(0); }}>Post another problem</button>
         </div>
       </div>

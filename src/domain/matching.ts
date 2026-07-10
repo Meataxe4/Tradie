@@ -95,3 +95,16 @@ export function matchTradies(
     .sort((a, b) => b.score - a.score)
     .slice(0, cap);
 }
+
+/**
+ * §3 "assigned, not auctioned": pick the single best-matched eligible trade for
+ * a job (top by rating × response-speed), or null if none can serve it.
+ */
+export function assignBestTradie(
+  job: Job,
+  triage: TriageResult,
+  tradies: TradieProfile[],
+  opts: MatchOptions,
+): TradieProfile | null {
+  return matchTradies(job, triage, tradies, { ...opts, cap: 1 })[0]?.tradie ?? null;
+}

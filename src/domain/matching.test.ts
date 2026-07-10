@@ -45,7 +45,7 @@ const job: Job = {
   postcode: "2042",
   state: "NSW",
   urgency: "routine",
-  status: "POSTED",
+  status: "AWAITING_QUOTE",
   created_at: NOW,
 };
 

@@ -55,6 +55,8 @@ export function leadView(store: MemoryStore, job: Job, tradieId: string) {
     photos: job.photos,
     created_at: job.created_at,
     quote_count: quoteCount,
+    quote_kind: job.quote_kind ?? null,
+    assigned_to_me: job.assigned_tradie_id === tradieId,
     // §9 poster trust cue WITHOUT identity: suburb + account age only.
     poster: {
       suburb: job.suburb,
@@ -70,6 +72,7 @@ export function quoteView(quote: Quote, store: MemoryStore) {
     quote_id: quote.id,
     job_id: quote.job_id,
     tradie: tradieSummary(store, quote.tradie_id),
+    kind: quote.kind,
     amount: quote.amount,
     inclusions: quote.inclusions,
     earliest_availability: quote.earliest_availability,
