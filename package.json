@@ -13,6 +13,7 @@
     "start": "tsx src/index.ts",
     "build": "tsc -p tsconfig.json",
     "build:web": "npm --prefix web run build",
+    "build:demo": "npm --prefix web run build:demo",
     "build:all": "npm run build:web",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",

@@ -21,14 +21,8 @@
   --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ground: #22262c; --surface: #2a2f36; --surface-2: #333942; --ink: #ece7dd;
-    --muted: #9e9c92; --faint: #706d65; --hairline: #383f48; --accent: #d2824f; --accent-ink: #201812;
-    --safe: #3fa396; --safe-bg: #143330; --pro: #90a3b5; --pro-bg: #262e37;
-    --emergency: #e1695b; --emergency-bg: #391a15; --unclear: #cfa25a; --unclear-bg: #33280f;
-  }
-}
+/* Light is the default. Dark applies only when the toggle sets data-theme="dark"
+   (we intentionally do NOT follow prefers-color-scheme). */
 :root[data-theme="light"] {
   --ground: #f5f0e8; --surface: #fdfbf6; --surface-2: #ebe4d6; --ink: #2a2f36;
   --muted: #82817a; --faint: #a6a299; --hairline: #e2dacb; --accent: #c06a3d; --accent-ink: #fff;

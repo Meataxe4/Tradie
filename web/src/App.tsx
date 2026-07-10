@@ -10,15 +10,24 @@ import { Leads } from "./views/Leads";
 import { LeadDetail } from "./views/LeadDetail";
 
 function ThemeToggle() {
-  const [theme, setTheme] = useState<string | null>(() => document.documentElement.getAttribute("data-theme"));
+  const [theme, setTheme] = useState<"light" | "dark">(
+    () => (localStorage.getItem("squiz.theme") === "dark" ? "dark" : "light"),
+  );
   useEffect(() => {
-    if (theme) document.documentElement.setAttribute("data-theme", theme);
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("squiz.theme", theme);
   }, [theme]);
-  const flip = () => {
-    const cur = theme ?? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-    setTheme(cur === "dark" ? "light" : "dark");
-  };
-  return <button className="icon-btn" onClick={flip} aria-label="Toggle theme">Theme</button>;
+  const dark = theme === "dark";
+  return (
+    <button
+      className="icon-btn"
+      onClick={() => setTheme(dark ? "light" : "dark")}
+      aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
+      title={dark ? "Light mode" : "Dark mode"}
+    >
+      {dark ? "☀ Light" : "☾ Dark"}
+    </button>
+  );
 }
 
 function TopBar() {

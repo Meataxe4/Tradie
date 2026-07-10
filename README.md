@@ -55,6 +55,13 @@ npm run build:web   # builds web/ into web/dist
 npm start           # Express serves the API *and* the built UI on :3000
 ```
 
+**Live demo (no backend):** `npm run build:demo` produces a single
+self-contained file at `web/dist-demo/index.html` — the real app bundled with an
+**in-browser mock API** (`web/src/demo/`). Open it directly in any browser (or
+host it anywhere static) to click through the whole product — landing, sign-up /
+login, AI triage, sealed quotes, messaging — with no server. The theme defaults
+to **light**, with a dark toggle in the top bar.
+
 **Persistence:** state is stored in SQLite at `./data/squiz.db` by default and
 **survives restarts** — accounts, jobs, quotes and bookings are all durable. Set
 `SQLITE_PATH` to change the file, or `SQLITE_PATH=off` (or `:memory:`) to run
