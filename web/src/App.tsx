@@ -85,6 +85,28 @@ function Guard({ role, children }: { role: "homeowner" | "tradie"; children: JSX
   return children;
 }
 
+/** Mobile-only bottom navigation (the top-bar nav is hidden under 600px). */
+function BottomNav() {
+  const { identity } = useSession();
+  if (!identity) return null;
+  const items = identity.role === "tradie"
+    ? [{ to: "/leads", label: "Jobs", icon: Icon.tools }]
+    : [
+        { to: "/new", label: "New job", icon: Icon.tools },
+        { to: "/jobs", label: "My jobs", icon: Icon.doc },
+      ];
+  return (
+    <nav className="bottomnav">
+      {items.map((i) => (
+        <NavLink key={i.to} to={i.to} className={({ isActive }) => (isActive ? "active" : "")}>
+          <span className="bn-ico">{i.icon}</span>
+          <span>{i.label}</span>
+        </NavLink>
+      ))}
+    </nav>
+  );
+}
+
 export function App() {
   return (
     <div className="app">
@@ -100,6 +122,7 @@ export function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+      <BottomNav />
     </div>
   );
 }
