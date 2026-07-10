@@ -4,6 +4,7 @@ import { api } from "../api";
 import type { Lead, WonLead } from "../types";
 import { CATEGORY_META, Icon, Spinner, money } from "../ui";
 import { timeAgo } from "../parts";
+import { ReviewForm } from "./ReviewForm";
 
 type Sort = "new" | "old" | "fewest";
 
@@ -230,6 +231,13 @@ function WonCard({ won, onChange }: { won: WonLead; onChange: () => void }) {
           </div>
           <button className="btn sm" style={{ marginTop: 12 }} disabled={busy} onClick={proposeVar}>Send variation</button>
         </div>
+      )}
+
+      {won.booking.status === "completed" && !won.reviews.some((r) => r.rater_role === "tradie") && (
+        <ReviewForm bookingId={won.booking.id} raterRole="tradie" onDone={onChange} />
+      )}
+      {won.reviews.some((r) => r.rater_role === "tradie") && (
+        <p style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 8 }}>You rated this customer {won.reviews.find((r) => r.rater_role === "tradie")!.overall}★.</p>
       )}
       {err && <p className="err">{err}</p>}
     </div>

@@ -373,32 +373,73 @@ export class MarketplaceService {
     return booking;
   }
 
-  reviewBooking(args: { booking_id: string; rating: number; text: string }): Review {
+  reviewsForBooking(bookingId: string): Review[] {
+    return [...this.store.reviews.values()].filter((r) => r.booking_id === bookingId);
+  }
+  reviewsAboutTradie(tradieId: string): Review[] {
+    return [...this.store.reviews.values()].filter((r) => r.ratee_id === tradieId && r.rater_role === "homeowner");
+  }
+
+  /**
+   * §4 Submit a structured review. Verified-paid only (booking completed), one
+   * per rater per booking. The customer's review closes the job (→ REVIEWED);
+   * both directions feed running averages.
+   */
+  submitReview(args: {
+    booking_id: string;
+    rater_role: "homeowner" | "tradie";
+    rater_id: string;
+    overall: number;
+    dimensions: Record<string, number>;
+    text: string;
+  }): Review {
     const booking = this.mustBooking(args.booking_id);
     if (booking.status !== "completed") {
-      throw new Error("Reviews can only be left after a completed booking");
+      throw new Error("You can only rate after the job is completed and paid");
     }
-    if (args.rating < 1 || args.rating > 5) {
-      throw new Error("Rating must be 1..5");
+    if (this.reviewsForBooking(booking.id).some((r) => r.rater_role === args.rater_role)) {
+      throw new Error("You've already rated this job");
     }
+    const scores = [args.overall, ...Object.values(args.dimensions)];
+    if (scores.some((s) => !Number.isFinite(s) || s < 1 || s > 5)) {
+      throw new Error("Ratings must be between 1 and 5");
+    }
+    const job = this.mustJob(booking.job_id);
+    const ratee_id = args.rater_role === "homeowner" ? booking.tradie_id : job.homeowner_id;
+
     const review: Review = {
       id: uuidv4(),
-      booking_id: args.booking_id,
-      rating: args.rating,
+      booking_id: booking.id,
+      job_id: job.id,
+      rater_role: args.rater_role,
+      rater_id: args.rater_id,
+      ratee_id,
+      overall: args.overall,
+      dimensions: args.dimensions,
       text: args.text,
       created_at: this.clock(),
     };
     this.store.reviews.set(review.id, review);
-    const job = this.mustJob(booking.job_id);
-    this.transitionJob(job, "REVIEWED");
 
-    // Fold the rating into the tradie's running average (§5).
-    const tradie = this.store.tradies.get(booking.tradie_id);
-    if (tradie) {
-      const total = tradie.rating_avg * tradie.jobs_completed + args.rating;
-      tradie.jobs_completed += 1;
-      tradie.rating_avg = total / tradie.jobs_completed;
-      this.store.tradies.set(tradie.user_id, tradie);
+    if (args.rater_role === "homeowner") {
+      // Customer rated the trade → fold into the trade's average, close the job.
+      const tradie = this.store.tradies.get(ratee_id);
+      if (tradie) {
+        const total = tradie.rating_avg * tradie.jobs_completed + args.overall;
+        tradie.jobs_completed += 1;
+        tradie.rating_avg = total / tradie.jobs_completed;
+        this.store.tradies.set(tradie.user_id, tradie);
+      }
+      if (job.status === "COMPLETED") this.transitionJob(job, "REVIEWED");
+    } else {
+      // Trade rated the customer → fold into the customer's average.
+      const owner = this.store.homeowners.get(ratee_id);
+      if (owner) {
+        const n = owner.ratings_count ?? 0;
+        owner.rating_avg = ((owner.rating_avg ?? 0) * n + args.overall) / (n + 1);
+        owner.ratings_count = n + 1;
+        this.store.homeowners.set(owner.user_id, owner);
+      }
     }
     return review;
   }

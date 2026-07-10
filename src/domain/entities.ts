@@ -25,6 +25,9 @@ export interface HomeownerProfile {
   default_address?: string;
   suburb?: string;
   postcode?: string;
+  /** Rating the customer has received from trades (§4 two-way). */
+  rating_avg?: number;
+  ratings_count?: number;
 }
 
 export interface Licence {
@@ -155,10 +158,17 @@ export interface Booking {
   status: BookingStatus;
 }
 
+// §4 Structured, two-way review. rater_role says who wrote it; ratee_id is the
+// user being rated. `overall` is 1..5; `dimensions` are per-aspect 1..5 scores.
 export interface Review {
   id: string;
   booking_id: string;
-  rating: number; // 1..5
+  job_id: string;
+  rater_role: "homeowner" | "tradie";
+  rater_id: string;
+  ratee_id: string;
+  overall: number; // 1..5
+  dimensions: Record<string, number>; // each 1..5
   text: string;
   created_at: string;
 }

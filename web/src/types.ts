@@ -113,6 +113,7 @@ export interface JobDetail extends JobSummary {
   booking: Booking | null;
   payment: Payment | null;
   variations: Variation[];
+  reviews: Review[];
 }
 
 export interface CreateJobResponse {
@@ -135,6 +136,16 @@ export interface TradieSummary {
   licence_verified: boolean;
   insured: boolean;
   member_since: string | null;
+  strengths: string[];
+}
+
+export interface Review {
+  id: string;
+  rater_role: "homeowner" | "tradie";
+  overall: number;
+  dimensions: Record<string, number>;
+  text: string;
+  created_at: string;
 }
 
 export interface Quote {
@@ -192,6 +203,7 @@ export interface WonLead {
   job: Lead | null;
   payment: Payment | null;
   variations: Variation[];
+  reviews: Review[];
 }
 
 export interface MyQuote extends Quote {

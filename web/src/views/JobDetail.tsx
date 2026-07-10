@@ -6,6 +6,7 @@ import { Icon, Spinner, money } from "../ui";
 import { Avatar, Stars, Stepper, TrustRow, timeAgo, memberSince } from "../parts";
 import { TriageView } from "./TriageView";
 import { Thread } from "./Thread";
+import { ReviewForm } from "./ReviewForm";
 
 export function JobDetail() {
   const { id = "" } = useParams();
@@ -122,6 +123,11 @@ export function JobDetail() {
                     <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "6px 0 0" }}>Firm, GST-inclusive price from our price book — no site visit needed.</p>
                   )}
                   {t && <TrustRow tradie={t} />}
+                  {t && t.strengths.length > 0 && (
+                    <div className="strengths">
+                      {t.strengths.map((s) => <span className="strength" key={s}>{Icon.starFill}{s}</span>)}
+                    </div>
+                  )}
                   <div className="offer-actions">
                     {canAccept && q.status === "offered" && (
                       <button className="btn sm" disabled={busy} onClick={() => accept(q.quote_id)}>Accept &amp; book</button>
@@ -176,40 +182,19 @@ export function JobDetail() {
               {job.booking.status === "scheduled" && (
                 <button className="btn sm" style={{ marginTop: 12 }} disabled={busy} onClick={complete}>Mark job completed</button>
               )}
-              {job.status === "COMPLETED" && <ReviewForm bookingId={job.booking.id} onDone={load} />}
-              {job.status === "REVIEWED" && <p className="notice" style={{ marginTop: 12 }}>Thanks — your review is in. This job is complete. 🎉</p>}
+              {job.booking.status === "completed" && !job.reviews.some((r) => r.rater_role === "homeowner") && (
+                <ReviewForm bookingId={job.booking.id} raterRole="homeowner" onDone={load} />
+              )}
+              {job.reviews.some((r) => r.rater_role === "homeowner") && (
+                <p className="notice" style={{ marginTop: 12 }}>Thanks — your rating's in. This job is complete. 🎉</p>
+              )}
+              {job.reviews.some((r) => r.rater_role === "tradie") && (
+                <p style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 8 }}>Your tradie rated you {job.reviews.find((r) => r.rater_role === "tradie")!.overall}★.</p>
+              )}
             </div>
           )}
         </>
       )}
-      {err && <p className="err">{err}</p>}
-    </div>
-  );
-}
-
-function ReviewForm({ bookingId, onDone }: { bookingId: string; onDone: () => void }) {
-  const [rating, setRating] = useState(5);
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
-  const submit = async () => {
-    setBusy(true); setErr("");
-    try { await api.review(bookingId, rating, text); onDone(); }
-    catch (e) { setErr((e as Error).message); }
-    finally { setBusy(false); }
-  };
-  return (
-    <div style={{ marginTop: 14, borderTop: "1px solid var(--hairline)", paddingTop: 14 }}>
-      <p className="eyebrow" style={{ marginBottom: 8 }}>Leave a review</p>
-      <div className="row" style={{ marginBottom: 10, gap: 4 }}>
-        {[1, 2, 3, 4, 5].map((n) => (
-          <button key={n} className="icon-btn" aria-label={`${n} star`}
-            style={{ color: n <= rating ? "var(--unclear)" : "var(--faint)", padding: "6px 8px" }}
-            onClick={() => setRating(n)}>{Icon.starFill}</button>
-        ))}
-      </div>
-      <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="How did it go?" style={{ minHeight: 70 }} />
-      <button className="btn sm" style={{ marginTop: 10 }} disabled={busy} onClick={submit}>Submit review</button>
       {err && <p className="err">{err}</p>}
     </div>
   );

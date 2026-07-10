@@ -381,3 +381,18 @@ dl.spec dd ul { margin: 0; padding-left: 18px; }
 .payout dd { margin: 0; font-size: 13.5px; text-align: right; }
 .payout .total dt, .payout .total dd { font-weight: 700; color: var(--ink); border-top: 1px solid var(--hairline); padding-top: 6px; margin-top: 2px; }
 .payout .fee dd { color: var(--emergency); }
+
+/* structured review inputs (§4) */
+.star-input { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0; }
+.si-label { font-size: 14px; color: var(--ink); }
+.si-stars { display: inline-flex; gap: 2px; }
+.si-stars button { background: none; border: none; cursor: pointer; padding: 2px; color: var(--hairline); line-height: 0; }
+.si-stars button svg { width: 20px; height: 20px; }
+.si-stars button.on { color: var(--unclear); }
+.si-stars button:focus-visible { outline: 2px solid var(--accent); border-radius: 4px; }
+/* strengths */
+.strengths { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.strength { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
+  border-radius: 100px; padding: 4px 9px; }
+.strength svg { width: 11px; height: 11px; }

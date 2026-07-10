@@ -123,8 +123,8 @@ export const api = {
   sendMessage: (threadId: string, bodyText: string) =>
     req<Message>("POST", `/threads/${threadId}/messages`, { body: bodyText }),
   completeBooking: (id: string) => req<Booking>("POST", `/bookings/${id}/complete`),
-  review: (bookingId: string, rating: number, text: string) =>
-    req<unknown>("POST", `/bookings/${bookingId}/review`, { rating, text }),
+  review: (bookingId: string, overall: number, dimensions: Record<string, number>, text: string) =>
+    req<unknown>("POST", `/bookings/${bookingId}/review`, { overall, dimensions, text }),
 
   // variations (§4)
   proposeVariation: (bookingId: string, amount: number, reason: string) =>

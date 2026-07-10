@@ -207,7 +207,8 @@ export function createApp(deps: AppDeps) {
     const booking = [...store.bookings.values()].find((bk) => bk.job_id === job.id) ?? null;
     const payment = booking ? market.paymentForBooking(booking.id) ?? null : null;
     const variations = booking ? market.variationsForBooking(booking.id) : [];
-    res.json({ ...homeownerJobView(job, triage), booking, payment, variations });
+    const reviews = booking ? market.reviewsForBooking(booking.id) : [];
+    res.json({ ...homeownerJobView(job, triage), booking, payment, variations, reviews });
   }));
 
   // GET /jobs/:id/quotes — private quote list (homeowner only).
@@ -300,6 +301,7 @@ export function createApp(deps: AppDeps) {
           job: job ? leadView(store, job, user.id) : null,
           payment: market.paymentForBooking(bk.id) ?? null,
           variations: market.variationsForBooking(bk.id),
+          reviews: market.reviewsForBooking(bk.id),
         };
       });
     res.json(won);
@@ -335,13 +337,16 @@ export function createApp(deps: AppDeps) {
     res.json(market.completeBooking(booking.id));
   }));
 
-  // POST /bookings/:id/review — only after a completed booking.
+  // POST /bookings/:id/review — structured two-way rating (§4), verified-paid.
   api.post("/bookings/:id/review", wrap((req, res) => {
-    requireRole(req, "homeowner");
+    const user = requireRole(req, "homeowner", "tradie");
     const b = req.body ?? {};
-    const review = market.reviewBooking({
+    const review = market.submitReview({
       booking_id: param(req, "id"),
-      rating: Number(b.rating),
+      rater_role: user.role === "tradie" ? "tradie" : "homeowner",
+      rater_id: user.id,
+      overall: Number(b.overall ?? b.rating),
+      dimensions: b.dimensions && typeof b.dimensions === "object" ? b.dimensions : {},
       text: String(b.text ?? ""),
     });
     res.status(201).json(review);

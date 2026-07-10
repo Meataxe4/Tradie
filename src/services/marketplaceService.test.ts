@@ -56,7 +56,10 @@ describe("price-book job: instant firm quote, assigned to one trade", () => {
     // Complete + review updates the tradie rating.
     market.completeBooking(booking.id);
     const before = store.tradies.get("spark-1")!.rating_avg;
-    market.reviewBooking({ booking_id: booking.id, rating: 5, text: "Great job" });
+    market.submitReview({
+      booking_id: booking.id, rater_role: "homeowner", rater_id: "home-1",
+      overall: 5, dimensions: { quality: 5, timeliness: 5, communication: 5, tidiness: 5, value: 4 }, text: "Great job",
+    });
     expect(store.jobs.get(created.job.id)?.status).toBe("REVIEWED");
     expect(store.tradies.get("spark-1")!.jobs_completed).toBe(41);
     expect(store.tradies.get("spark-1")!.rating_avg).not.toBe(before);

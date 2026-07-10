@@ -9,6 +9,7 @@
  */
 import type { Job, Quote, Triage } from "../domain/entities.js";
 import { MemoryStore } from "../store/memoryStore.js";
+import { computeStrengths } from "../domain/ratings.js";
 
 /** Public trust summary for a tradie (safe to show a homeowner). */
 export function tradieSummary(store: MemoryStore, tradieId: string) {
@@ -16,6 +17,9 @@ export function tradieSummary(store: MemoryStore, tradieId: string) {
   const user = store.users.get(tradieId);
   if (!t) return null;
   const licence = t.licences[0];
+  const strengths = computeStrengths(
+    [...store.reviews.values()].filter((r) => r.ratee_id === tradieId && r.rater_role === "homeowner"),
+  );
   return {
     tradie_id: t.user_id,
     business_name: t.business_name,
@@ -27,6 +31,7 @@ export function tradieSummary(store: MemoryStore, tradieId: string) {
     licence_verified: licence?.verified_status === "verified",
     insured: Boolean(t.insurance.public_liability_expiry),
     member_since: user?.created_at ?? null,
+    strengths,
   };
 }
 
