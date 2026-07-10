@@ -13,17 +13,21 @@ import {
   assertJobTransition,
   assertQuoteTransition,
 } from "../domain/stateMachines.js";
+import { computeFee } from "../payments/fees.js";
+import { MockPaymentProvider, type PaymentProvider } from "../payments/provider.js";
 import type {
   AustralianState,
   Booking,
   Job,
   Message,
   MessageSenderRole,
+  Payment,
   Quote,
   QuoteKind,
   Review,
   TradieProfile,
   Triage,
+  Variation,
 } from "../domain/entities.js";
 import type { Category } from "../triage/schema.js";
 
@@ -48,11 +52,16 @@ export interface CreateJobResult {
 }
 
 export class MarketplaceService {
+  private readonly payments: PaymentProvider;
+
   constructor(
     private readonly store: MemoryStore,
     private readonly triageSvc: TriageService,
     private readonly clock: () => string = () => new Date().toISOString(),
-  ) {}
+    payments?: PaymentProvider,
+  ) {
+    this.payments = payments ?? new MockPaymentProvider();
+  }
 
   async createJob(input: CreateJobInput): Promise<CreateJobResult> {
     const now = this.clock();
@@ -220,7 +229,86 @@ export class MarketplaceService {
       scheduled_for: quote.earliest_availability,
     };
     this.store.bookings.set(booking.id, booking);
+
+    // §3 authorise (hold) the full price now — nothing is captured until the
+    // work is done. Fee/payout are provisional until capture.
+    const auth = this.payments.authorize({
+      amount: quote.amount,
+      currency: "aud",
+      job_id: job.id,
+      tradie_id: quote.tradie_id,
+    });
+    const fee = computeFee(quote.amount);
+    const payment: Payment = {
+      id: uuidv4(),
+      job_id: job.id,
+      booking_id: booking.id,
+      quote_id: quote.id,
+      tradie_id: quote.tradie_id,
+      currency: "aud",
+      amount_authorized: quote.amount,
+      platform_fee: fee.platform_fee,
+      trade_payout: fee.trade_payout,
+      status: "authorized",
+      provider: this.payments.name,
+      provider_ref: auth.ref,
+      created_at: this.clock(),
+    };
+    this.store.payments.set(payment.id, payment);
     return { quote, booking };
+  }
+
+  // ---- payments & variations (§3, §4) ----
+
+  paymentForBooking(bookingId: string): Payment | undefined {
+    return [...this.store.payments.values()].find((p) => p.booking_id === bookingId);
+  }
+
+  variationsForBooking(bookingId: string): Variation[] {
+    return [...this.store.variations.values()]
+      .filter((v) => v.booking_id === bookingId)
+      .sort((a, b) => a.created_at.localeCompare(b.created_at));
+  }
+
+  private approvedVariationTotal(bookingId: string): number {
+    return this.variationsForBooking(bookingId)
+      .filter((v) => v.status === "approved")
+      .reduce((sum, v) => sum + v.amount, 0);
+  }
+
+  /** The assigned trade proposes extra work; the customer must approve it (§4). */
+  proposeVariation(args: { booking_id: string; tradie_id: string; amount: number; reason: string }): Variation {
+    const booking = this.mustBooking(args.booking_id);
+    if (booking.tradie_id !== args.tradie_id) throw new Error("This booking isn't yours");
+    if (booking.status !== "scheduled") throw new Error("Variations can only be raised on a scheduled job");
+    if (!Number.isInteger(args.amount) || args.amount <= 0) throw new Error("Variation amount must be a positive integer (cents)");
+    const variation: Variation = {
+      id: uuidv4(),
+      job_id: booking.job_id,
+      booking_id: booking.id,
+      tradie_id: args.tradie_id,
+      amount: args.amount,
+      reason: args.reason,
+      status: "proposed",
+      created_at: this.clock(),
+    };
+    this.store.variations.set(variation.id, variation);
+    return variation;
+  }
+
+  approveVariation(variationId: string): Variation {
+    return this.setVariationStatus(variationId, "approved");
+  }
+  declineVariation(variationId: string): Variation {
+    return this.setVariationStatus(variationId, "declined");
+  }
+  private setVariationStatus(variationId: string, status: "approved" | "declined"): Variation {
+    const v = this.store.variations.get(variationId);
+    if (!v) throw new Error(`Variation ${variationId} not found`);
+    if (v.status !== "proposed") throw new Error("This variation has already been decided");
+    v.status = status;
+    this.store.variations.set(v.id, v);
+    return v;
   }
 
   /** Customer declines the firm quote — the job is closed. */
@@ -267,6 +355,21 @@ export class MarketplaceService {
     this.store.bookings.set(booking.id, booking);
     const job = this.mustJob(booking.job_id);
     this.transitionJob(job, "COMPLETED");
+
+    // §3 capture on completion: base price + approved variations; 5% fee taken
+    // server-side, remainder to the trade.
+    const payment = this.paymentForBooking(bookingId);
+    if (payment && payment.status === "authorized") {
+      const finalAmount = payment.amount_authorized + this.approvedVariationTotal(bookingId);
+      const fee = computeFee(finalAmount);
+      this.payments.capture(payment.provider_ref, finalAmount, fee.platform_fee);
+      payment.status = "captured";
+      payment.amount_captured = finalAmount;
+      payment.platform_fee = fee.platform_fee;
+      payment.trade_payout = fee.trade_payout;
+      payment.captured_at = this.clock();
+      this.store.payments.set(payment.id, payment);
+    }
     return booking;
   }
 

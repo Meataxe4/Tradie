@@ -17,11 +17,13 @@ import type {
   LicenceVerification,
   Message,
   MessageThread,
+  Payment,
   Quote,
   Review,
   TradieProfile,
   Triage,
   User,
+  Variation,
 } from "../domain/entities.js";
 import { SqlMap, type KVMap } from "./kvMap.js";
 
@@ -37,6 +39,8 @@ export class MemoryStore {
   messages: KVMap<string, Message>;
   bookings: KVMap<string, Booking>;
   reviews: KVMap<string, Review>;
+  payments: KVMap<string, Payment>; // key: payment id (also indexed by booking below)
+  variations: KVMap<string, Variation>;
   licenceVerifications: KVMap<string, LicenceVerification>;
   /** Auth: user_id -> password hash, and lowercased email -> user_id. */
   credentials: KVMap<string, string>;
@@ -65,6 +69,8 @@ export class MemoryStore {
     this.messages = mk("messages");
     this.bookings = mk("bookings");
     this.reviews = mk("reviews");
+    this.payments = mk("payments");
+    this.variations = mk("variations");
     this.licenceVerifications = mk("licence_verifications");
     this.credentials = mk("credentials");
     this.usersByEmail = mk("users_by_email");

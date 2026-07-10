@@ -125,4 +125,10 @@ export const api = {
   completeBooking: (id: string) => req<Booking>("POST", `/bookings/${id}/complete`),
   review: (bookingId: string, rating: number, text: string) =>
     req<unknown>("POST", `/bookings/${bookingId}/review`, { rating, text }),
+
+  // variations (§4)
+  proposeVariation: (bookingId: string, amount: number, reason: string) =>
+    req<unknown>("POST", `/bookings/${bookingId}/variations`, { amount, reason }),
+  approveVariation: (id: string) => req<unknown>("POST", `/variations/${id}/approve`),
+  declineVariation: (id: string) => req<unknown>("POST", `/variations/${id}/decline`),
 };

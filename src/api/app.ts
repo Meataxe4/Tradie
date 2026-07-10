@@ -205,7 +205,9 @@ export function createApp(deps: AppDeps) {
     const triageId = store.triageByJob.get(job.id);
     const triage = triageId ? store.triages.get(triageId) : undefined;
     const booking = [...store.bookings.values()].find((bk) => bk.job_id === job.id) ?? null;
-    res.json({ ...homeownerJobView(job, triage), booking });
+    const payment = booking ? market.paymentForBooking(booking.id) ?? null : null;
+    const variations = booking ? market.variationsForBooking(booking.id) : [];
+    res.json({ ...homeownerJobView(job, triage), booking, payment, variations });
   }));
 
   // GET /jobs/:id/quotes — private quote list (homeowner only).
@@ -292,7 +294,13 @@ export function createApp(deps: AppDeps) {
       .filter((bk) => bk.tradie_id === user.id)
       .map((bk) => {
         const job = store.jobs.get(bk.job_id);
-        return { booking: bk, thread_id: bk.quote_id, job: job ? leadView(store, job, user.id) : null };
+        return {
+          booking: bk,
+          thread_id: bk.quote_id,
+          job: job ? leadView(store, job, user.id) : null,
+          payment: market.paymentForBooking(bk.id) ?? null,
+          variations: market.variationsForBooking(bk.id),
+        };
       });
     res.json(won);
   }));
@@ -337,6 +345,30 @@ export function createApp(deps: AppDeps) {
       text: String(b.text ?? ""),
     });
     res.status(201).json(review);
+  }));
+
+  // ---- variations (§4): trade proposes extra work, customer approves ----
+  api.post("/bookings/:id/variations", wrap((req, res) => {
+    const user = requireRole(req, "tradie");
+    const b = req.body ?? {};
+    if (typeof b.amount !== "number") throw new HttpError(400, "amount (AUD cents) required");
+    const variation = market.proposeVariation({
+      booking_id: param(req, "id"),
+      tradie_id: user.id,
+      amount: b.amount,
+      reason: String(b.reason ?? ""),
+    });
+    res.status(201).json(variation);
+  }));
+
+  api.post("/variations/:id/approve", wrap((req, res) => {
+    requireRole(req, "homeowner");
+    res.json(market.approveVariation(param(req, "id")));
+  }));
+
+  api.post("/variations/:id/decline", wrap((req, res) => {
+    requireRole(req, "homeowner");
+    res.json(market.declineVariation(param(req, "id")));
   }));
 
   // POST /triage — internal: run triage without persisting a job (§8 shared).

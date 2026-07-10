@@ -19,11 +19,12 @@ export function Leads() {
   const [hideQuoted, setHideQuoted] = useState(false);
   const [sort, setSort] = useState<Sort>("new");
 
-  useEffect(() => {
+  const reload = () => {
     Promise.all([api.leads(), api.wonLeads()])
       .then(([l, w]) => { setLeads(l); setWon(w); })
       .catch((e) => setErr(e.message));
-  }, []);
+  };
+  useEffect(reload, []);
 
   const categories = useMemo(
     () => Array.from(new Set((leads ?? []).map((l) => l.category))),
@@ -157,20 +158,80 @@ export function Leads() {
 
       {won.length > 0 && (
         <div style={{ marginTop: 30 }}>
-          <p className="eyebrow">Jobs you've won</p>
+          <p className="eyebrow">Your booked jobs & payouts</p>
           <div className="list">
-            {won.map((w) => (
-              <Link className="feed-card" to={`/leads/${w.job?.job_id}`} key={w.booking.id} style={{ borderColor: "var(--safe)" }}>
-                <div className="fc-top">
-                  <h4>{w.job?.job_spec?.title ?? "Booked job"}</h4>
-                  <span className="urgency-pill routine" style={{ color: "var(--safe)", background: "var(--safe-bg)" }}>{w.booking.status}</span>
-                </div>
-                <div className="fc-meta"><span className="m">{Icon.pin}{w.job?.full_address ?? w.job?.suburb}</span></div>
-              </Link>
-            ))}
+            {won.map((w) => <WonCard key={w.booking.id} won={w} onChange={reload} />)}
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function WonCard({ won, onChange }: { won: WonLead; onChange: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [showVar, setShowVar] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
+  const [err, setErr] = useState("");
+  const p = won.payment;
+  const scheduled = won.booking.status === "scheduled";
+
+  const act = async (fn: () => Promise<unknown>) => {
+    setBusy(true); setErr("");
+    try { await fn(); onChange(); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+  };
+  const proposeVar = () => {
+    const cents = Math.round(Number(amount) * 100);
+    if (!cents || cents <= 0) { setErr("Enter a valid variation amount."); return; }
+    act(() => api.proposeVariation(won.booking.id, cents, reason.trim() || "Additional work"))
+      .then(() => { setAmount(""); setReason(""); setShowVar(false); });
+  };
+
+  return (
+    <div className="feed-card" style={{ borderColor: p?.status === "captured" ? "var(--safe)" : "var(--hairline)" }}>
+      <div className="fc-top">
+        <h4>{won.job?.job_spec?.title ?? "Booked job"}</h4>
+        <span className="urgency-pill routine" style={{ color: "var(--safe)", background: "var(--safe-bg)" }}>
+          {p?.status === "captured" ? "paid" : won.booking.status}
+        </span>
+      </div>
+      <div className="fc-meta"><span className="m">{Icon.pin}{won.job?.full_address ?? won.job?.suburb}</span></div>
+
+      {p && (
+        <dl className="payout" style={{ marginTop: 12 }}>
+          <dt>Job price (GST incl.)</dt><dd>{money(p.amount_captured ?? p.amount_authorized)}</dd>
+          <div className="fee" style={{ display: "contents" }}><dt>Platform fee (5%)</dt><dd>−{money(p.platform_fee ?? 0)}</dd></div>
+          <div className="total" style={{ display: "contents" }}><dt>{p.status === "captured" ? "You received" : "You'll receive"}</dt><dd>{money(p.trade_payout ?? 0)}</dd></div>
+        </dl>
+      )}
+
+      {won.variations.map((v) => (
+        <div key={v.id} className="variation" style={{ marginTop: 8 }}>
+          <div><div style={{ fontWeight: 650, fontSize: 13.5 }}>+{money(v.amount)}</div><div style={{ fontSize: 12.5, color: "var(--muted)" }}>{v.reason}</div></div>
+          <span className="offer-status" style={{ background: "var(--surface-2)", color: v.status === "approved" ? "var(--safe)" : "var(--muted)" }}>{v.status}</span>
+        </div>
+      ))}
+
+      {scheduled && (
+        <div className="row wrap" style={{ marginTop: 12 }}>
+          <button className="btn sm" disabled={busy} onClick={() => act(() => api.completeBooking(won.booking.id))}>Mark complete → get paid</button>
+          <button className="btn ghost sm" onClick={() => setShowVar((s) => !s)}>{showVar ? "Cancel" : "Raise a variation"}</button>
+        </div>
+      )}
+      {showVar && scheduled && (
+        <div className="card" style={{ marginTop: 12, marginBottom: 0 }}>
+          <p className="notice" style={{ marginBottom: 12 }}>The customer must approve extra work before it counts — it's added to the held payment.</p>
+          <div className="grid two">
+            <label className="field" style={{ marginBottom: 0 }}><span className="lbl">Extra amount (AUD)</span>
+              <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /></label>
+            <label className="field" style={{ marginBottom: 0 }}><span className="lbl">Reason</span>
+              <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. extra cabling" /></label>
+          </div>
+          <button className="btn sm" style={{ marginTop: 12 }} disabled={busy} onClick={proposeVar}>Send variation</button>
+        </div>
+      )}
+      {err && <p className="err">{err}</p>}
     </div>
   );
 }

@@ -42,6 +42,13 @@ export function JobDetail() {
     finally { setBusy(false); }
   };
 
+  const decideVariation = async (id: string, approve: boolean) => {
+    setBusy(true); setErr("");
+    try { approve ? await api.approveVariation(id) : await api.declineVariation(id); await load(); }
+    catch (e) { setErr((e as Error).message); }
+    finally { setBusy(false); }
+  };
+
   if (err && !job) return <p className="err">{err}</p>;
   if (!job) return <Spinner />;
 
@@ -138,6 +145,34 @@ export function JobDetail() {
                 <dt>Your address</dt><dd>{job.full_address ?? "shared with your tradie"}</dd>
                 {job.booking.scheduled_for && (<><dt>Scheduled</dt><dd>{job.booking.scheduled_for}</dd></>)}
               </dl>
+
+              {job.payment && (
+                <div className="pay-line" style={{ marginTop: 12 }}>
+                  {job.payment.status === "authorized" ? (
+                    <>{Icon.shield}<span><b>{money(job.payment.amount_authorized)} held securely.</b> You're only charged when the job's marked complete — no surprises.</span></>
+                  ) : job.payment.status === "captured" ? (
+                    <>{Icon.tick}<span><b>Paid {money(job.payment.amount_captured ?? job.payment.amount_authorized)}.</b> Released to your tradie on completion.</span></>
+                  ) : null}
+                </div>
+              )}
+
+              {job.variations.map((v) => (
+                <div key={v.id} className="variation">
+                  <div>
+                    <div style={{ fontWeight: 650, fontSize: 14 }}>Variation: +{money(v.amount)}</div>
+                    <div style={{ fontSize: 13, color: "var(--muted)" }}>{v.reason}</div>
+                  </div>
+                  {v.status === "proposed" ? (
+                    <div className="row" style={{ gap: 8 }}>
+                      <button className="btn sm" disabled={busy} onClick={() => decideVariation(v.id, true)}>Approve</button>
+                      <button className="btn ghost sm" disabled={busy} onClick={() => decideVariation(v.id, false)}>Decline</button>
+                    </div>
+                  ) : (
+                    <span className="offer-status" style={{ color: v.status === "approved" ? "var(--safe)" : "var(--muted)", background: "var(--surface-2)" }}>{v.status}</span>
+                  )}
+                </div>
+              ))}
+
               {job.booking.status === "scheduled" && (
                 <button className="btn sm" style={{ marginTop: 12 }} disabled={busy} onClick={complete}>Mark job completed</button>
               )}

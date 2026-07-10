@@ -88,11 +88,31 @@ export interface JobSummary {
   quote_count: number;
 }
 
+export interface Payment {
+  status: "authorized" | "captured" | "canceled" | "failed";
+  amount_authorized: number;
+  amount_captured?: number;
+  platform_fee?: number;
+  trade_payout?: number;
+  currency: string;
+  captured_at?: string;
+}
+
+export interface Variation {
+  id: string;
+  amount: number;
+  reason: string;
+  status: "proposed" | "approved" | "declined";
+  created_at: string;
+}
+
 export interface JobDetail extends JobSummary {
   photos: string[];
   full_address?: string;
   triage: TriageResult | null;
   booking: Booking | null;
+  payment: Payment | null;
+  variations: Variation[];
 }
 
 export interface CreateJobResponse {
@@ -170,6 +190,8 @@ export interface WonLead {
   booking: Booking;
   thread_id: string;
   job: Lead | null;
+  payment: Payment | null;
+  variations: Variation[];
 }
 
 export interface MyQuote extends Quote {

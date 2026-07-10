@@ -369,3 +369,15 @@ dl.spec dd ul { margin: 0; padding-left: 18px; }
   background: var(--surface); border: 1px solid var(--hairline); border-radius: 100px; padding: 6px 12px; }
 .trust-pill .tick { width: 13px; height: 13px; color: var(--safe); display: inline-flex; }
 .trust-pill .tick svg { width: 13px; height: 13px; }
+
+/* payments & variations (§3/§4) */
+.pay-line { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; color: var(--ink);
+  background: var(--safe-bg); border: 1px solid color-mix(in srgb, var(--safe) 26%, transparent); border-radius: 10px; padding: 11px 13px; }
+.pay-line svg { width: 16px; height: 16px; color: var(--safe); flex: none; margin-top: 1px; }
+.variation { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px;
+  background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 10px; padding: 11px 13px; }
+.payout { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; margin: 0; font-variant-numeric: tabular-nums; }
+.payout dt { color: var(--muted); font-size: 13.5px; }
+.payout dd { margin: 0; font-size: 13.5px; text-align: right; }
+.payout .total dt, .payout .total dd { font-weight: 700; color: var(--ink); border-top: 1px solid var(--hairline); padding-top: 6px; margin-top: 2px; }
+.payout .fee dd { color: var(--emergency); }

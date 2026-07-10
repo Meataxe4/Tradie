@@ -163,6 +163,45 @@ export interface Review {
   created_at: string;
 }
 
+// §6 Payments — money held at booking, captured on completion, 5% fee.
+export type PaymentStatus = "authorized" | "captured" | "canceled" | "failed";
+
+export interface Payment {
+  id: string;
+  job_id: string;
+  booking_id: string;
+  quote_id: string;
+  tradie_id: string;
+  currency: "aud";
+  /** Amount held at booking (cents, GST-inclusive). */
+  amount_authorized: number;
+  /** Amount actually captured on completion (base + approved variations). */
+  amount_captured?: number;
+  /** 5% platform fee on the captured amount (cents). */
+  platform_fee?: number;
+  /** What the trade receives after the fee (cents). */
+  trade_payout?: number;
+  status: PaymentStatus;
+  provider: string;
+  provider_ref: string;
+  created_at: string;
+  captured_at?: string;
+}
+
+// §4 In-app variations — extra work approved by the customer before it proceeds.
+export type VariationStatus = "proposed" | "approved" | "declined";
+
+export interface Variation {
+  id: string;
+  job_id: string;
+  booking_id: string;
+  tradie_id: string;
+  amount: number; // additional cents, GST-inclusive
+  reason: string;
+  status: VariationStatus;
+  created_at: string;
+}
+
 export interface LicenceVerification {
   id: string;
   tradie_id: string;
