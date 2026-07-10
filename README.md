@@ -1,15 +1,32 @@
-# Squiz — Australian trades marketplace (MVP backend)
+# Sorted By — AI-concierge trades marketplace
 
-A two-sided marketplace where homeowners describe a household problem, an **AI
-triages it**, and — for anything regulated or risky — the problem becomes a clean
-job spec that verified tradies quote on privately.
+A two-sided marketplace that gets the customer **sorted**: describe a household
+problem, an **AI concierge** triages it, and — for anything regulated or risky —
+the job is **assigned to one vetted trade** with a **firm, GST-inclusive quote**.
+Accept in a tap; the money is **held securely** and released on completion, with
+a **5% platform fee** and **structured two-way ratings**.
 
-This repository is the **MVP backend**, built from the [build spec](#spec). It
-centres on the part the spec calls out as the reason the product is safe to ship:
-the **AI triage safety policy and its server-side enforcement gate**.
+Built from the product brief. Working prototype on **TypeScript + Node + Express
++ SQLite** with a **React** frontend (the brief's eventual Flutter/Firebase
+target is a separate future port). What it delivers today:
 
-> ⚠️ This is a build, not legal advice. Sections 1 and 10 of the spec need a
-> lawyer before taking real jobs or money.
+- **AI concierge triage + safety gate** — safe DIY, or a routed job; hazards
+  short-circuit to an urgent-safety path (the reason it's safe to ship).
+- **Assigned firm quotes + price book** (§3) — one trade per job, no auctions;
+  common jobs get an instant price-book quote, the rest are routed for a firm one.
+- **Held payment + 5% fee + variations** (§3/§6) — authorise at booking, capture
+  on completion, fee computed server-side in AUD cents; in-app variations.
+- **Structured two-way ratings** (§4) — multi-dimension, verified-paid, both
+  directions, with strengths surfaced on profiles.
+- **Vetting surfaced** — licence class + expiry + insurance on every trade.
+
+> ⚠️ This is a build, not legal advice. The NSW licensing/compliance and ACL
+> positioning need a lawyer before taking real jobs or money.
+
+**Live demo (no install):** the whole app runs in your browser at the shared
+Artifact link — landing, sign-up, concierge triage, firm quote, held payment,
+variations, and ratings, all against an in-browser mock. `npm run build:demo`
+regenerates it as a single self-contained `web/dist-demo/index.html`.
 
 ## The prime directive
 
