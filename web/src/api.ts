@@ -14,24 +14,25 @@ import type {
   RegisterInput,
   WonLead,
 } from "./types";
+import { storage } from "./storage";
 
 const KEY_ID = "squiz.identity";
 const KEY_TOKEN = "squiz.token";
 
 export function getIdentity(): Identity | null {
-  const raw = localStorage.getItem(KEY_ID);
-  return raw ? (JSON.parse(raw) as Identity) : null;
+  const raw = storage.get(KEY_ID);
+  try { return raw ? (JSON.parse(raw) as Identity) : null; } catch { return null; }
 }
 export function setIdentity(id: Identity | null) {
-  if (id) localStorage.setItem(KEY_ID, JSON.stringify(id));
-  else localStorage.removeItem(KEY_ID);
+  if (id) storage.set(KEY_ID, JSON.stringify(id));
+  else storage.remove(KEY_ID);
 }
 export function getToken(): string | null {
-  return localStorage.getItem(KEY_TOKEN);
+  return storage.get(KEY_TOKEN);
 }
 export function setToken(token: string | null) {
-  if (token) localStorage.setItem(KEY_TOKEN, token);
-  else localStorage.removeItem(KEY_TOKEN);
+  if (token) storage.set(KEY_TOKEN, token);
+  else storage.remove(KEY_TOKEN);
 }
 /** Persist a successful auth result (token + identity) in one place. */
 export function storeAuth(result: AuthResult) {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { storage } from "./storage";
 import { NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { useSession } from "./session";
 import { Icon } from "./ui";
@@ -11,11 +12,11 @@ import { LeadDetail } from "./views/LeadDetail";
 
 function ThemeToggle() {
   const [theme, setTheme] = useState<"light" | "dark">(
-    () => (localStorage.getItem("squiz.theme") === "dark" ? "dark" : "light"),
+    () => (storage.get("squiz.theme") === "dark" ? "dark" : "light"),
   );
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("squiz.theme", theme);
+    storage.set("squiz.theme", theme);
   }, [theme]);
   const dark = theme === "dark";
   return (

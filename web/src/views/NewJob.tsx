@@ -4,6 +4,7 @@ import { api } from "../api";
 import type { CreateJobResponse } from "../types";
 import { Icon } from "../ui";
 import { TriageView } from "./TriageView";
+import { storage } from "../storage";
 
 const EXAMPLES = [
   "A power point in the bedroom has stopped working",
@@ -30,8 +31,8 @@ export function NewJob() {
   const nav = useNavigate();
 
   useEffect(() => {
-    const draft = sessionStorage.getItem("squiz.draft");
-    if (draft) { setDescription(draft); sessionStorage.removeItem("squiz.draft"); }
+    const draft = storage.get("squiz.draft");
+    if (draft) { setDescription(draft); storage.remove("squiz.draft"); }
   }, []);
 
   const submit = async () => {

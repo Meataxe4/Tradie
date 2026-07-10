@@ -4,11 +4,12 @@ import { HashRouter } from "react-router-dom";
 import { SessionProvider } from "./session";
 import { App } from "./App";
 import "./styles.css";
+import { storage } from "./storage";
 
 // Light is the default; apply the persisted theme before first paint (no flash).
 document.documentElement.setAttribute(
   "data-theme",
-  localStorage.getItem("squiz.theme") === "dark" ? "dark" : "light",
+  storage.get("squiz.theme") === "dark" ? "dark" : "light",
 );
 
 function render() {
