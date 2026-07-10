@@ -10,7 +10,9 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), ...(demo ? [viteSingleFile()] : [])],
     base: demo ? "./" : "/",
-    define: demo ? { "import.meta.env.VITE_DEMO": "true" } : {},
+    // Statically define the flag both ways so the mock is tree-shaken out of
+    // production and inlined (no dynamic import) into the single-file demo.
+    define: { "import.meta.env.VITE_DEMO": demo ? "true" : "false" },
     server: {
       port: 5173,
       proxy: { "/api": "http://localhost:3000" },

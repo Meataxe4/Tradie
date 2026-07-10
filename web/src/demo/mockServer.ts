@@ -195,7 +195,10 @@ function seed() {
     { at: -20 * 60e3, d: "A power point in the bedroom is dead" },
   ]) createJob({ homeowner_id: "home-1", description: j.d, photos: ["p1"], suburb: "Newtown", postcode: "2042", state: "NSW", full_address: "1 Example St, Newtown NSW 2042", _at: new Date(t0 + j.at).toISOString() });
 }
-seed();
+// Lazy seed on first request — keeps this module side-effect-free so it can be
+// tree-shaken out of the production build.
+let seeded = false;
+function ensureSeeded() { if (!seeded) { seed(); seeded = true; } }
 
 // ---------- dispatch ----------
 interface Res { status: number; body: any }
@@ -203,6 +206,7 @@ const ok = (body: any, status = 200): Res => ({ status, body });
 const err = (status: number, msg: string): Res => ({ status, body: { error: msg } });
 
 export function handleRequest(method: string, path: string, body: any, authHeader?: string): Res {
+  ensureSeeded();
   const seg = path.replace(/^\/api/, "").split("?")[0]!.split("/").filter(Boolean);
   const user = decode(authHeader);
   const need = (...roles: Role[]): any => { if (!user) throw err(401, "Sign in to continue"); if (!roles.includes(user.role)) throw err(403, "Wrong role"); return user; };

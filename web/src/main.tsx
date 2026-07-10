@@ -5,6 +5,7 @@ import { SessionProvider } from "./session";
 import { App } from "./App";
 import "./styles.css";
 import { storage } from "./storage";
+import { installMockFetch } from "./demo/installMockFetch";
 
 // Light is the default; apply the persisted theme before first paint (no flash).
 try {
@@ -43,9 +44,9 @@ function render() {
   }
 }
 
-// Live-demo build (VITE_DEMO=1): serve /api from an in-browser mock, no backend.
-if (import.meta.env.VITE_DEMO) {
-  import("./demo/installMockFetch").then((m) => { m.installMockFetch(); render(); });
-} else {
-  render();
-}
+// Live-demo build: serve /api from an in-browser mock, no backend. Statically
+// imported (no dynamic import()) so the whole app is one inline script — which
+// also works when the file is opened directly via file://. In production the
+// flag is defined false, so this branch and the mock are tree-shaken away.
+if (import.meta.env.VITE_DEMO) installMockFetch();
+render();
