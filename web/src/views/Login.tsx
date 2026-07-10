@@ -7,9 +7,15 @@ import { CATEGORY_META, Icon } from "../ui";
 import { Avatar } from "../parts";
 
 const HOW = [
-  { n: 1, h: "Describe the problem", p: "Tell us what's wrong in plain words and add a photo. Our AI works out what's going on." },
-  { n: 2, h: "Get it triaged safely", p: "Safe DIY jobs get step-by-step guidance. Anything regulated is written up for licensed tradies." },
-  { n: 3, h: "Choose from private quotes", p: "Verified tradies send sealed quotes only you can see. Compare, chat, and book the one you like." },
+  { n: 1, h: "Tell the concierge", p: "Describe the problem in plain words and add photos. Our AI concierge asks the right questions — the way a great tradie would on the phone." },
+  { n: 2, h: "Get one firm quote", p: "A genuinely safe fix is walked through step by step. Otherwise you get one firm, GST-inclusive price from a vetted local trade — no bidding wars, no chasing quotes." },
+  { n: 3, h: "Accept in a tap, pay when it's done", p: "Booking holds your payment securely. The trade arrives knowing the scope, and money is only charged once the job's complete." },
+];
+const TRUST = [
+  "Vetted, licensed & insured trades",
+  "Firm upfront prices",
+  "Payment held until the job's done",
+  "5% fee — only on completed jobs",
 ];
 const POPULAR = ["electrical", "plumbing_water", "gas", "hvac", "carpentry", "handyman", "appliance", "locksmith"];
 const STATES = ["NSW", "VIC", "QLD", "WA", "SA", "TAS", "ACT", "NT"];
@@ -33,11 +39,17 @@ export function Login() {
   return (
     <div>
       <section className="hero">
-        <h1>Home repair, <span className="accent">triaged by AI</span>,<br />quoted by verified tradies</h1>
+        <h1>A great tradie at a fair price,<br /><span className="accent">sorted</span>.</h1>
         <p className="sub">
-          Describe a problem and we'll tell you if it's a safe DIY fix — or connect you with licensed,
-          verified tradies who send private quotes. Australia-wide.
+          Tell our AI concierge what's wrong. Get safe DIY help, or one firm quote from a vetted local
+          trade — accept in a tap, with your payment held securely until the job's done.
         </p>
+
+        <div className="trust-strip">
+          {TRUST.map((t) => (
+            <span className="trust-pill" key={t}><span className="tick" aria-hidden="true">{Icon.tick}</span>{t}</span>
+          ))}
+        </div>
 
         <div className="authcard">
           <div className="tabs">
@@ -61,7 +73,7 @@ export function Login() {
         )}
       </section>
 
-      <p className="section-h">How Squiz works</p>
+      <p className="section-h">How Sorted By works</p>
       <div className="how">
         {HOW.map((s) => (
           <div className="step" key={s.n}><div className="n">{s.n}</div><h4>{s.h}</h4><p>{s.p}</p></div>

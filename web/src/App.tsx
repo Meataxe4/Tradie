@@ -39,8 +39,8 @@ function TopBar() {
         <div className="brand">
           <span className="logo" aria-hidden="true">{Icon.tools}</span>
           <div>
-            <b>Squiz</b>
-            <small>home repairs, triaged</small>
+            <b>Sorted&nbsp;By</b>
+            <small>get sorted</small>
           </div>
         </div>
         {identity && (
