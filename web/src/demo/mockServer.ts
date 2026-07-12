@@ -314,7 +314,8 @@ function createSingleJobMock(input: AnyMap) {
   let assigned: any = null; let quote: any = null;
   if (result.verdict === "DIY_SAFE") { job.status = "DIY_RESOLVED"; }
   else {
-    assigned = assignBest(job, result.required_licence_class);
+    const pref = input.preferred_tradie_id ? db.tradies.get(input.preferred_tradie_id) : null;
+    assigned = (pref && tradieMatches(pref, job, result.required_licence_class) ? pref : null) ?? assignBest(job, result.required_licence_class);
     if (assigned) job.assigned_tradie_id = assigned.user_id;
     const pb = assigned ? priceBookLookup(job.category, `${text} ${result.job_spec?.title ?? ""}`) : null;
     if (assigned && pb) { job.quote_kind = "price_book"; job.price_book_key = pb.key; quote = createFirmQuote(job, assigned.user_id, "price_book", pb.amount, pb.label, at); job.status = "QUOTED"; }
@@ -392,7 +393,7 @@ export function handleRequest(method: string, path: string, body: any, authHeade
 
     // admin ops dashboard
     if (method === "GET" && seg[0] === "admin" && seg[1] === "overview") {
-      need("admin");
+      need("admin"); sweepMock();
       const jobs = [...db.jobs.values()]; const quotes = [...db.quotes.values()];
       const bookings = [...db.bookings.values()]; const payments = [...db.payments.values()];
       const captured = payments.filter((p) => p.status === "captured"); const held = payments.filter((p) => p.status === "authorized");
@@ -415,6 +416,7 @@ export function handleRequest(method: string, path: string, body: any, authHeade
           { key: "completed", label: "Completed & paid", count: bookings.filter((b) => b.status === "completed").length },
           { key: "reviewed", label: "Reviewed", count: reached(["REVIEWED"]) },
         ],
+        attention: [...db.bookings.values()].filter((b) => b.status === "scheduled" && (b.disputed_at || (!b.completion_requested_at && (b.created_at ?? "1970") <= new Date(Date.now() - 7 * 24 * 3600e3).toISOString()))).map((b) => ({ kind: b.disputed_at ? "disputed" : "stale", booking: b, job: db.jobs.get(b.job_id) ?? null, tradie: tradieSummary(b.tradie_id), payment: paymentForBooking(b.id) })),
         overrides: [...db.overrideLog].reverse().slice(0, 20),
         leakage: [...db.leakageLog].reverse().slice(0, 20),
         verification: tradies.filter((t) => t.verified_status === "pending" || t.verified_status === "unverified"),
@@ -443,7 +445,7 @@ export function handleRequest(method: string, path: string, body: any, authHeade
       return ok(job.certificate, 201);
     }
     if (method === "GET" && seg[0] === "jobs" && seg.length === 1) { const u = need("homeowner"); return ok([...db.jobs.values()].filter((j) => j.homeowner_id === u.sub).sort((a, b) => b.created_at.localeCompare(a.created_at)).map(jobSummary)); }
-    if (method === "GET" && seg[0] === "jobs" && seg.length === 2) { const u = need("homeowner"); const job = db.jobs.get(seg[1]!); if (!job || job.homeowner_id !== u.sub) return err(404, "Job not found"); const tri = db.triages.get(job.id); const booking = [...db.bookings.values()].find((b) => b.job_id === job.id) ?? null; const ball = job.status === "AWAITING_QUOTE" || job.status === "QUOTED" ? qBallpark(job.category, job.urgency, tri?.result.job_spec?.symptoms?.length ?? 0) : null; return ok({ ...job, triage: tri?.result ?? null, vision: tri?.vision ?? null, booking, payment: booking ? paymentForBooking(booking.id) : null, variations: booking ? variationsForBooking(booking.id) : [], reviews: booking ? reviewsForBooking(booking.id) : [], assigned_tradie: job.assigned_tradie_id ? tradieSummary(job.assigned_tradie_id) : null, ballpark: ball }); }
+    if (method === "GET" && seg[0] === "jobs" && seg.length === 2) { const u = need("homeowner"); sweepMock(); const job = db.jobs.get(seg[1]!); if (!job || job.homeowner_id !== u.sub) return err(404, "Job not found"); const tri = db.triages.get(job.id); const booking = [...db.bookings.values()].find((b) => b.job_id === job.id) ?? null; const ball = job.status === "AWAITING_QUOTE" || job.status === "QUOTED" ? qBallpark(job.category, job.urgency, tri?.result.job_spec?.symptoms?.length ?? 0) : null; return ok({ ...job, triage: tri?.result ?? null, vision: tri?.vision ?? null, booking, payment: booking ? paymentForBooking(booking.id) : null, variations: booking ? variationsForBooking(booking.id) : [], reviews: booking ? reviewsForBooking(booking.id) : [], assigned_tradie: job.assigned_tradie_id ? tradieSummary(job.assigned_tradie_id) : null, ballpark: ball }); }
     if (method === "GET" && seg[0] === "jobs" && seg[2] === "quotes") { const u = need("homeowner"); const job = db.jobs.get(seg[1]!); if (!job || job.homeowner_id !== u.sub) return err(404, "Job not found"); return ok(quotesForJob(job.id).map(quoteView)); }
     if (method === "POST" && seg[0] === "quotes" && seg[2] === "accept") return doAccept(need("homeowner"), seg[1]!);
     if (method === "POST" && seg[0] === "quotes" && seg[2] === "decline-reassign") {
@@ -470,7 +472,7 @@ export function handleRequest(method: string, path: string, body: any, authHeade
     if (method === "POST" && seg[0] === "reviews" && seg[2] === "draft-response") { const u = need("tradie"); const r = db.reviews.get(seg[1]!); if (!r) return err(404, "Review not found"); if (r.rater_role !== "homeowner" || r.ratee_id !== u.sub) return err(403, "You can only respond to reviews written about you"); const t = db.tradies.get(u.sub); return ok(draftReviewResponseMock(r, t?.business_name ?? "our team")); }
     if (method === "POST" && seg[0] === "reviews" && seg[2] === "respond") { const u = need("tradie"); const r = db.reviews.get(seg[1]!); if (!r) return err(404, "Review not found"); if (r.rater_role !== "homeowner" || r.ratee_id !== u.sub) return err(403, "You can only respond to reviews written about you"); if (r.response) return err(400, "You've already responded to this review"); r.response = mask(String(body?.response ?? "")).body; r.responded_at = nowIso(); return ok(r, 201); }
     if (method === "GET" && seg[0] === "me" && seg[1] === "quotes") { const u = need("tradie"); return ok([...db.quotes.values()].filter((q) => q.tradie_id === u.sub).map((q) => ({ ...quoteView(q), thread_id: q.id, job: db.jobs.get(q.job_id) ? leadView(db.jobs.get(q.job_id), u.sub) : null }))); }
-    if (method === "GET" && seg[0] === "me" && seg[1] === "leads" && seg[2] === "won") { const u = need("tradie"); return ok([...db.bookings.values()].filter((b) => b.tradie_id === u.sub).map((b) => ({ booking: b, thread_id: b.quote_id, job: db.jobs.get(b.job_id) ? leadView(db.jobs.get(b.job_id), u.sub) : null, payment: paymentForBooking(b.id), variations: variationsForBooking(b.id), reviews: reviewsForBooking(b.id) }))); }
+    if (method === "GET" && seg[0] === "me" && seg[1] === "leads" && seg[2] === "won") { const u = need("tradie"); sweepMock(); return ok([...db.bookings.values()].filter((b) => b.tradie_id === u.sub).map((b) => ({ booking: b, thread_id: b.quote_id, job: db.jobs.get(b.job_id) ? leadView(db.jobs.get(b.job_id), u.sub) : null, payment: paymentForBooking(b.id), variations: variationsForBooking(b.id), reviews: reviewsForBooking(b.id) }))); }
 
     // shared
     if (method === "POST" && seg[0] === "threads" && seg[2] === "suggest-reply") {
@@ -485,7 +487,14 @@ export function handleRequest(method: string, path: string, body: any, authHeade
       if (m.redacted) db.leakageLog.push({ thread_id: seg[1], sender_role: msg.sender_role, at: msg.created_at });
       return ok(msg, 201);
     }
-    if (method === "POST" && seg[0] === "bookings" && seg[2] === "complete") { need("homeowner", "tradie"); return doComplete(seg[1]!); }
+    if (method === "POST" && seg[0] === "bookings" && seg[2] === "complete") { const u = need("homeowner", "tradie", "admin"); return doComplete(seg[1]!, u.role); }
+    if (method === "POST" && seg[0] === "bookings" && seg[2] === "dispute") {
+      const u = need("homeowner"); const b = db.bookings.get(seg[1]!); if (!b) return err(404, "Booking not found");
+      const job = db.jobs.get(b.job_id); if (!job || job.homeowner_id !== u.sub) return err(403, "Not your booking");
+      if (b.status !== "scheduled") return err(400, "This booking isn't open");
+      b.disputed_at = nowIso(); b.dispute_reason = String(body?.reason ?? "").trim() || "Customer raised an issue";
+      return ok(b);
+    }
     if (method === "POST" && seg[0] === "bookings" && seg[2] === "review") { const u = need("homeowner", "tradie"); return doReview(u, seg[1]!, body); }
     if (method === "POST" && seg[0] === "bookings" && seg[2] === "variations") { const u = need("tradie"); return doVariation(u, seg[1]!, body); }
     if (method === "POST" && seg[0] === "variations" && seg[2] === "approve") { need("homeowner"); return doDecideVariation(seg[1]!, "approved"); }
@@ -515,7 +524,7 @@ function doLogin(body: any): Res { const email = String(body?.email ?? "").trim(
 function doAccept(u: any, quoteId: string): Res {
   const q = db.quotes.get(quoteId); if (!q) return err(404, "Quote not found"); const job = db.jobs.get(q.job_id); if (!job || job.homeowner_id !== u.sub) return err(403, "Not your job");
   q.status = "accepted"; job.status = "BOOKED";
-  const booking = { id: uid(), job_id: job.id, quote_id: q.id, tradie_id: q.tradie_id, status: "scheduled", scheduled_for: q.earliest_availability }; db.bookings.set(booking.id, booking);
+  const booking: AnyMap = { id: uid(), job_id: job.id, quote_id: q.id, tradie_id: q.tradie_id, status: "scheduled", scheduled_for: q.earliest_availability, created_at: nowIso() }; db.bookings.set(booking.id, booking);
   const fee = computeFee(q.amount);
   db.payments.set(booking.id, { id: uid(), job_id: job.id, booking_id: booking.id, quote_id: q.id, tradie_id: q.tradie_id, currency: "aud", amount_authorized: q.amount, platform_fee: fee.platform_fee, trade_payout: fee.trade_payout, status: "authorized", provider: "mock", provider_ref: "mock_" + booking.id, created_at: nowIso() });
   return ok({ quote: quoteView(q), booking });
@@ -528,12 +537,29 @@ function doFirmQuote(u: any, jobId: string, body: any): Res {
   const q = createFirmQuote(job, u.sub, "custom", body.amount, String(body.inclusions ?? ""), nowIso()); job.status = "QUOTED";
   return ok({ quote_id: q.id, status: q.status, thread_id: q.id }, 201);
 }
-function doComplete(bid: string): Res {
-  const b = db.bookings.get(bid); if (!b) return err(404, "Booking not found");
+function finalizeMock(b: any) {
   b.status = "completed"; const job = db.jobs.get(b.job_id); job.status = "COMPLETED";
-  const p = paymentForBooking(bid);
-  if (p && p.status === "authorized") { const extra = variationsForBooking(bid).filter((v) => v.status === "approved").reduce((s, v) => s + v.amount, 0); const finalAmount = p.amount_authorized + extra; const fee = computeFee(finalAmount); p.status = "captured"; p.amount_captured = finalAmount; p.platform_fee = fee.platform_fee; p.trade_payout = fee.trade_payout; p.captured_at = nowIso(); }
-  return ok(b);
+  const p = paymentForBooking(b.id);
+  if (p && p.status === "authorized") { const extra = variationsForBooking(b.id).filter((v) => v.status === "approved").reduce((s, v) => s + v.amount, 0); const finalAmount = p.amount_authorized + extra; const fee = computeFee(finalAmount); p.status = "captured"; p.amount_captured = finalAmount; p.platform_fee = fee.platform_fee; p.trade_payout = fee.trade_payout; p.captured_at = nowIso(); }
+  return b;
+}
+function sweepMock() {
+  const now = nowIso();
+  for (const b of db.bookings.values()) {
+    if (b.status === "scheduled" && b.completion_requested_at && !b.disputed_at && b.auto_release_at && b.auto_release_at <= now) finalizeMock(b);
+  }
+}
+function doComplete(bid: string, role: string): Res {
+  const b = db.bookings.get(bid); if (!b) return err(404, "Booking not found");
+  if (b.status !== "scheduled") return err(400, "This booking isn't open");
+  if (role === "tradie") {
+    if (!b.completion_requested_at) {
+      b.completion_requested_at = nowIso(); b.completion_requested_by = "tradie";
+      b.auto_release_at = new Date(Date.now() + 48 * 3600 * 1000).toISOString();
+    }
+    return ok(b);
+  }
+  return ok(finalizeMock(b));
 }
 function doVariation(u: any, bid: string, body: any): Res {
   const b = db.bookings.get(bid); if (!b) return err(404, "Booking not found"); if (b.tradie_id !== u.sub) return err(403, "Not yours"); if (b.status !== "scheduled") return err(400, "Variations only on scheduled jobs");

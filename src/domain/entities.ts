@@ -187,6 +187,15 @@ export interface Booking {
   tradie_id: string;
   scheduled_for?: string;
   status: BookingStatus;
+  created_at?: string;
+  /** Anti-leakage completion flow: the tradie requests, the customer confirms
+   *  (or a 48h window auto-releases). Inaction favours the platform, not cash. */
+  completion_requested_at?: string;
+  completion_requested_by?: "tradie" | "homeowner";
+  auto_release_at?: string;
+  /** Customer raised an issue — pauses auto-release until resolved by ops. */
+  disputed_at?: string;
+  dispute_reason?: string;
 }
 
 // §4 Structured, two-way review. rater_role says who wrote it; ratee_id is the

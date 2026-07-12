@@ -285,6 +285,12 @@ export interface Booking {
   tradie_id: string;
   status: string;
   scheduled_for?: string;
+  created_at?: string;
+  completion_requested_at?: string;
+  completion_requested_by?: "tradie" | "homeowner";
+  auto_release_at?: string;
+  disputed_at?: string;
+  dispute_reason?: string;
 }
 
 export interface WonLead {
@@ -315,6 +321,13 @@ export interface AdminOverview {
     tradies_verified: number;
   };
   funnel: Array<{ key: string; label: string; count: number }>;
+  attention: Array<{
+    kind: "disputed" | "stale";
+    booking: Booking;
+    job: { id: string; description: string; category: string } | null;
+    tradie: TradieSummary | null;
+    payment: Payment | null;
+  }>;
   overrides: Array<{ triage_id: string; job_id: string; at: string; overrides: Override[] }>;
   leakage: Array<{ thread_id: string; sender_role: string; at: string }>;
   verification: Array<{

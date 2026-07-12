@@ -62,6 +62,9 @@ export function NewJob() {
   const nav = useNavigate();
   const [params] = useSearchParams();
   const projectId = params.get("project") ?? undefined;
+  // Book-again (#4): carry the preferred trade through the wizard.
+  const preferId = params.get("prefer") ?? undefined;
+  const preferName = params.get("name") ?? undefined;
 
   useEffect(() => {
     const draft = storage.get("squiz.draft");
@@ -97,6 +100,7 @@ export function NewJob() {
         photos: photos.map((p) => p.dataUrl),
         captions: photos.map((p) => p.caption),
         project_id: projectId,
+        preferred_tradie_id: preferId,
         suburb, postcode, state, full_address: address,
       });
       setResult(res);
@@ -220,6 +224,11 @@ export function NewJob() {
 
       {step === 0 && (
         <div>
+          {preferId && (
+            <p className="notice" style={{ marginBottom: 14 }}>
+              Booking {preferName ?? "your previous tradie"} again — we'll assign them if they're available for this job.
+            </p>
+          )}
           <h1 className="page-title">What's the problem?</h1>
           <p className="page-sub">Describe it like you'd tell a mate. Add a photo if you can — our AI reviews it to route the job safely.</p>
           <div className="card">

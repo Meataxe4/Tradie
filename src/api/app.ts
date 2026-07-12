@@ -183,6 +183,7 @@ export function createApp(deps: AppDeps) {
       images: parseImages(photos),
       captions: Array.isArray(b.captions) ? b.captions.map(String) : undefined,
       project_id: b.project_id ? String(b.project_id) : undefined,
+      preferred_tradie_id: b.preferred_tradie_id ? String(b.preferred_tradie_id) : undefined,
     });
     res.status(201).json({
       job: result.job,
@@ -248,6 +249,7 @@ export function createApp(deps: AppDeps) {
   // GET /jobs/:id — homeowner's own job incl. triage + DIY guidance.
   api.get("/jobs/:id", wrap((req, res) => {
     const user = requireRole(req, "homeowner", "admin");
+    market.sweepAutoReleases();
     const job = store.jobs.get(param(req, "id"));
     if (!job) throw new HttpError(404, "Job not found");
     if (user.role !== "admin" && job.homeowner_id !== user.id) {
@@ -415,6 +417,7 @@ export function createApp(deps: AppDeps) {
   // GET /me/leads/won — bookings won by this tradie.
   api.get("/me/leads/won", wrap((req, res) => {
     const user = requireRole(req, "tradie");
+    market.sweepAutoReleases();
     const won = [...store.bookings.values()]
       .filter((bk) => bk.tradie_id === user.id)
       .map((bk) => {
@@ -453,12 +456,24 @@ export function createApp(deps: AppDeps) {
     res.json(store.messagesForThread(param(req, "id")));
   }));
 
-  // POST /bookings/:id/complete
+  // POST /bookings/:id/complete — homeowner/admin finalise; the trade only
+  // REQUESTS completion (48h confirm-or-dispute window, then auto-release).
   api.post("/bookings/:id/complete", wrap((req, res) => {
-    requireRole(req, "homeowner", "tradie", "admin");
+    const user = requireRole(req, "homeowner", "tradie", "admin");
     const booking = store.bookings.get(param(req, "id"));
     if (!booking) throw new HttpError(404, "Booking not found");
-    res.json(market.completeBooking(booking.id));
+    if (user.role === "tradie" && booking.tradie_id !== user.id) throw new HttpError(403, "Not your booking");
+    res.json(market.completeBooking(booking.id, user.role));
+  }));
+
+  // POST /bookings/:id/dispute — customer pauses auto-release; lands in ops.
+  api.post("/bookings/:id/dispute", wrap((req, res) => {
+    const user = requireRole(req, "homeowner");
+    res.json(market.disputeBooking({
+      booking_id: param(req, "id"),
+      homeowner_id: user.id,
+      reason: String(req.body?.reason ?? ""),
+    }));
   }));
 
   // POST /bookings/:id/review — structured two-way rating (§4), verified-paid.
@@ -522,6 +537,7 @@ export function createApp(deps: AppDeps) {
   // funnel, and the three operational queues (overrides, leakage, verification).
   api.get("/admin/overview", wrap((req, res) => {
     requireRole(req, "admin");
+    market.sweepAutoReleases();
     const jobs = [...store.jobs.values()];
     const quotes = [...store.quotes.values()];
     const bookings = [...store.bookings.values()];
@@ -555,6 +571,10 @@ export function createApp(deps: AppDeps) {
         tradies_verified: tradies.filter((t) => t.verified_status === "verified").length,
       },
       funnel,
+      attention: [
+        ...market.disputedBookings().map((b) => ({ kind: "disputed" as const, booking: b, job: store.jobs.get(b.job_id) ?? null, tradie: tradieSummary(store, b.tradie_id), payment: market.paymentForBooking(b.id) ?? null })),
+        ...market.staleBookings().map((b) => ({ kind: "stale" as const, booking: b, job: store.jobs.get(b.job_id) ?? null, tradie: tradieSummary(store, b.tradie_id), payment: market.paymentForBooking(b.id) ?? null })),
+      ],
       overrides: [...store.overrideLog].reverse().slice(0, 20),
       leakage: [...store.leakageLog].reverse().slice(0, 20),
       verification: tradies.filter((t) => t.verified_status === "pending" || t.verified_status === "unverified"),

@@ -20,6 +20,8 @@ export function JobDetail() {
   const [explaining, setExplaining] = useState("");
   // UX #2: accepting authorises a real payment hold — confirm it deliberately.
   const [confirming, setConfirming] = useState<Quote | null>(null);
+  const [disputeOpen, setDisputeOpen] = useState(false);
+  const [disputeReason, setDisputeReason] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -261,14 +263,61 @@ export function JobDetail() {
                 </div>
               ))}
 
-              {job.booking.status === "scheduled" && (
+              {job.booking.status === "scheduled" && job.booking.disputed_at && (
+                <p className="notice" style={{ marginTop: 12 }}>
+                  You've raised an issue — payment release is paused and Sorted By is on it. Nothing is charged until it's resolved.
+                </p>
+              )}
+              {job.booking.status === "scheduled" && job.booking.completion_requested_at && !job.booking.disputed_at && (
+                <div className="confirm-panel">
+                  <b>{accepted?.tradie?.business_name ?? "Your tradie"} marked this job done</b>
+                  <span>Happy with the work? Confirm to release the payment. If not, raise an issue — otherwise it releases automatically{job.booking.auto_release_at ? ` ${new Date(job.booking.auto_release_at).toLocaleString("en-AU", { weekday: "short", hour: "numeric", minute: "2-digit" })}` : " in 48h"}.</span>
+                  <div className="row wrap" style={{ marginTop: 12 }}>
+                    <button className="btn sm" disabled={busy} onClick={complete}>Confirm &amp; release payment</button>
+                    <button className="btn ghost sm" onClick={() => setDisputeOpen((o) => !o)}>{disputeOpen ? "Cancel" : "Something's not right"}</button>
+                  </div>
+                  {disputeOpen && (
+                    <div className="row" style={{ gap: 8, marginTop: 10 }}>
+                      <input value={disputeReason} onChange={(e) => setDisputeReason(e.target.value)} placeholder="What's wrong? e.g. the outlet still doesn't work" style={{ flex: 1 }} />
+                      <button className="btn sm" disabled={busy} onClick={async () => {
+                        setBusy(true); setErr("");
+                        try { await api.disputeBooking(job.booking!.id, disputeReason.trim()); setDisputeOpen(false); await load(); }
+                        catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+                      }}>Raise issue</button>
+                    </div>
+                  )}
+                </div>
+              )}
+              {job.booking.status === "scheduled" && !job.booking.completion_requested_at && !job.booking.disputed_at && (
                 <button className="btn sm" style={{ marginTop: 12 }} disabled={busy} onClick={complete}>Mark job completed</button>
+              )}
+              {job.booking.status === "scheduled" && (
+                <p className="keep-line">
+                  Why keep it on Sorted By? Your payment stays protected until you're happy, extra work needs your
+                  approval, disputes are covered — and the finished job (with its compliance certificate) goes on
+                  your home's permanent record. Cash outside the app has none of that, and breaches the terms.
+                </p>
               )}
               {job.booking.status === "completed" && !job.reviews.some((r) => r.rater_role === "homeowner") && (
                 <ReviewForm bookingId={job.booking.id} raterRole="homeowner" onDone={load} />
               )}
               {job.reviews.some((r) => r.rater_role === "homeowner") && (
                 <p className="notice" style={{ marginTop: 12 }}>Thanks — your rating's in. This job is complete. 🎉</p>
+              )}
+              {job.booking.status === "completed" && (
+                <>
+                  <p className="keep-line">
+                    This job — the price, the record{job.certificate ? ", the compliance certificate" : ""} — now lives
+                    in your Sorted By history: a certified logbook for your home, handy at sale time and for insurance.
+                    Cash jobs leave no record.
+                  </p>
+                  {accepted?.tradie && (
+                    <Link className="btn ghost sm" style={{ marginTop: 10, display: "inline-block" }}
+                      to={`/new?prefer=${accepted.tradie.tradie_id}&name=${encodeURIComponent(accepted.tradie.business_name)}`}>
+                      Book {accepted.tradie.business_name} again →
+                    </Link>
+                  )}
+                </>
               )}
               {job.reviews.some((r) => r.rater_role === "tradie") && (
                 <p style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 8 }}>Your tradie rated you {job.reviews.find((r) => r.rater_role === "tradie")!.overall}★.</p>

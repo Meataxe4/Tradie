@@ -61,6 +61,8 @@ export interface CreateJobInput {
   captions?: string[];
   /** Attach this job to an existing customer project. */
   project_id?: string;
+  /** Book-again: prefer this trade if they're still eligible for the job. */
+  preferred_tradie_id?: string;
   /** Internal: stage metadata when a multi-trade plan creates this job. */
   _stage?: { project_id: string; index: number; label: string };
 }
@@ -248,8 +250,11 @@ export class MarketplaceService {
     if (result.verdict === "DIY_SAFE") {
       this.transitionJob(job, "DIY_RESOLVED");
     } else {
-      // §3 assign ONE vetted trade (assigned, not auctioned).
-      assigned = assignBestTradie(job, result, this.store.allTradies(), { now });
+      // §3 assign ONE vetted trade (assigned, not auctioned). Book-again: if the
+      // customer asked for a specific trade and they're still eligible, they win.
+      const preferred = input.preferred_tradie_id ? this.store.tradies.get(input.preferred_tradie_id) : undefined;
+      assigned = (preferred && assignBestTradie(job, result, [preferred], { now })) ||
+        assignBestTradie(job, result, this.store.allTradies(), { now });
       if (assigned) job.assigned_tradie_id = assigned.user_id;
 
       // Price-book match → instant firm quote; otherwise route as a custom quote.
@@ -493,6 +498,7 @@ export class MarketplaceService {
       tradie_id: quote.tradie_id,
       status: "scheduled",
       scheduled_for: quote.earliest_availability,
+      created_at: this.clock(),
     };
     this.store.bookings.set(booking.id, booking);
 
@@ -649,8 +655,33 @@ export class MarketplaceService {
     return message;
   }
 
-  completeBooking(bookingId: string): Booking {
+  /** Hours the customer has to confirm/dispute before payment auto-releases. */
+  static readonly AUTO_RELEASE_HOURS = 48;
+
+  /**
+   * Anti-leakage completion flow. The payer (homeowner) or ops finalises
+   * immediately; the trade only *requests* completion, opening a 48-hour
+   * confirm-or-dispute window that auto-releases on silence — so a cash deal
+   * requires both parties to actively intervene, not passively drift.
+   */
+  completeBooking(bookingId: string, actor: "homeowner" | "tradie" | "admin" = "admin"): Booking {
     const booking = this.mustBooking(bookingId);
+    if (booking.status !== "scheduled") throw new Error("This booking isn't open");
+    if (actor === "tradie") {
+      if (booking.completion_requested_at) return booking; // idempotent
+      const now = this.clock();
+      booking.completion_requested_at = now;
+      booking.completion_requested_by = "tradie";
+      booking.auto_release_at = new Date(
+        new Date(now).getTime() + MarketplaceService.AUTO_RELEASE_HOURS * 3600 * 1000,
+      ).toISOString();
+      this.store.bookings.set(booking.id, booking);
+      return booking;
+    }
+    return this.finalizeCompletion(booking);
+  }
+
+  private finalizeCompletion(booking: Booking): Booking {
     booking.status = "completed";
     this.store.bookings.set(booking.id, booking);
     const job = this.mustJob(booking.job_id);
@@ -658,9 +689,9 @@ export class MarketplaceService {
 
     // §3 capture on completion: base price + approved variations; 5% fee taken
     // server-side, remainder to the trade.
-    const payment = this.paymentForBooking(bookingId);
+    const payment = this.paymentForBooking(booking.id);
     if (payment && payment.status === "authorized") {
-      const finalAmount = payment.amount_authorized + this.approvedVariationTotal(bookingId);
+      const finalAmount = payment.amount_authorized + this.approvedVariationTotal(booking.id);
       const fee = computeFee(finalAmount);
       this.payments.capture(payment.provider_ref, finalAmount, fee.platform_fee);
       payment.status = "captured";
@@ -671,6 +702,49 @@ export class MarketplaceService {
       this.store.payments.set(payment.id, payment);
     }
     return booking;
+  }
+
+  /** Customer raises an issue — pauses auto-release and lands in the ops queue. */
+  disputeBooking(args: { booking_id: string; homeowner_id: string; reason: string }): Booking {
+    const booking = this.mustBooking(args.booking_id);
+    const job = this.mustJob(booking.job_id);
+    if (job.homeowner_id !== args.homeowner_id) throw new Error("Not your booking");
+    if (booking.status !== "scheduled") throw new Error("This booking isn't open");
+    booking.disputed_at = this.clock();
+    booking.dispute_reason = args.reason.trim() || "Customer raised an issue";
+    this.store.bookings.set(booking.id, booking);
+    return booking;
+  }
+
+  /**
+   * Lazy sweep (no background scheduler needed): finalise any booking whose
+   * confirm window has lapsed undisputed. Called from the read paths, so the
+   * state is always settled by the time anyone looks at it.
+   */
+  sweepAutoReleases(): number {
+    const now = this.clock();
+    let released = 0;
+    for (const b of [...this.store.bookings.values()]) {
+      if (b.status === "scheduled" && b.completion_requested_at && !b.disputed_at &&
+          b.auto_release_at && b.auto_release_at <= now) {
+        this.finalizeCompletion(b);
+        released++;
+      }
+    }
+    return released;
+  }
+
+  /** Ops: silent bookings (no completion request, no dispute) older than 7 days. */
+  staleBookings(): Booking[] {
+    const cutoff = new Date(new Date(this.clock()).getTime() - 7 * 24 * 3600 * 1000).toISOString();
+    return [...this.store.bookings.values()].filter(
+      (b) => b.status === "scheduled" && !b.completion_requested_at && !b.disputed_at &&
+        (b.created_at ?? "1970") <= cutoff,
+    );
+  }
+
+  disputedBookings(): Booking[] {
+    return [...this.store.bookings.values()].filter((b) => b.status === "scheduled" && b.disputed_at);
   }
 
   reviewsForBooking(bookingId: string): Review[] {

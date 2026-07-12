@@ -109,6 +109,7 @@ export const api = {
     photos: string[];
     captions?: string[];
     project_id?: string;
+    preferred_tradie_id?: string;
     suburb: string;
     postcode: string;
     state: string;
@@ -150,6 +151,8 @@ export const api = {
   suggestReply: (threadId: string) =>
     req<ReplySuggestion>("POST", `/threads/${threadId}/suggest-reply`),
   completeBooking: (id: string) => req<Booking>("POST", `/bookings/${id}/complete`),
+  disputeBooking: (bookingId: string, reason: string) =>
+    req<Booking>("POST", `/bookings/${bookingId}/dispute`, { reason }),
   attachCertificate: (bookingId: string, reference: string) =>
     req<unknown>("POST", `/bookings/${bookingId}/certificate`, { reference }),
   review: (bookingId: string, overall: number, dimensions: Record<string, number>, text: string) =>

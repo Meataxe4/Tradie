@@ -71,6 +71,33 @@ export function Admin() {
         </p>
       </div>
 
+      {/* Queue 0: needs attention — disputes + leakage-suspect stale bookings */}
+      {data.attention.length > 0 && (
+        <div className="card" style={{ borderColor: "var(--emergency)" }}>
+          <h3>{Icon.clock}Needs attention <span className="q-count">{data.attention.length}</span></h3>
+          {data.attention.map((a, i) => (
+            <div className="q-row" key={i}>
+              <div>
+                <b className={`q-tone ${a.kind === "disputed" ? "serious" : "warn"}`}>
+                  {a.kind === "disputed" ? "✕ Disputed" : "⚠ Stale booking — possible off-platform completion"}
+                </b>
+                <span>
+                  {a.job?.description?.slice(0, 60) ?? a.booking.job_id.slice(0, 8)} · {a.tradie?.business_name ?? a.booking.tradie_id}
+                  {a.payment ? ` · ${money(a.payment.amount_authorized)} held` : ""}
+                  {a.kind === "disputed" && a.booking.dispute_reason ? ` · "${a.booking.dispute_reason}"` : ""}
+                </span>
+              </div>
+              <button className="btn sm" disabled={busy === a.booking.id} onClick={async () => {
+                setBusy(a.booking.id); setErr("");
+                try { await api.completeBooking(a.booking.id); load(); }
+                catch (e) { setErr((e as Error).message); }
+                finally { setBusy(""); }
+              }}>Resolve → capture</button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Queue 1: verification — supply activation */}
       <div className="card">
         <h3>{Icon.shield}Verification queue <span className="q-count">{data.verification.length}</span></h3>

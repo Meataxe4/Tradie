@@ -271,11 +271,24 @@ function WonCard({ won, onChange }: { won: WonLead; onChange: () => void }) {
         </div>
       ))}
 
-      {scheduled && (
+      {scheduled && won.booking.disputed_at && (
+        <p className="notice" style={{ marginTop: 12, color: "var(--emergency)" }}>
+          The customer raised an issue{won.booking.dispute_reason ? ` — "${won.booking.dispute_reason}"` : ""}. Payment release is paused while Sorted By looks into it.
+        </p>
+      )}
+      {scheduled && won.booking.completion_requested_at && !won.booking.disputed_at && (
+        <p className="notice" style={{ marginTop: 12 }}>
+          ✓ You've marked this done. The customer has until {won.booking.auto_release_at ? new Date(won.booking.auto_release_at).toLocaleString("en-AU", { weekday: "short", hour: "numeric", minute: "2-digit" }) : "48h"} to confirm — then your payment releases automatically.
+        </p>
+      )}
+      {scheduled && !won.booking.completion_requested_at && !won.booking.disputed_at && (
         <div className="row wrap" style={{ marginTop: 12 }}>
-          <button className="btn sm" disabled={busy} onClick={() => act(() => api.completeBooking(won.booking.id))}>Mark complete → get paid</button>
+          <button className="btn sm" disabled={busy} onClick={() => act(() => api.completeBooking(won.booking.id))}>Mark complete → customer confirms</button>
           <button className="btn ghost sm" onClick={() => setShowVar((s) => !s)}>{showVar ? "Cancel" : "Raise a variation"}</button>
         </div>
+      )}
+      {scheduled && (
+        <p className="keep-line">Keep it on Sorted By — payment's guaranteed, the fee's only 5%, and every completed job builds your rating and match priority. Cash jobs build nothing.</p>
       )}
       {showVar && scheduled && (
         <div className="card" style={{ marginTop: 12, marginBottom: 0 }}>
