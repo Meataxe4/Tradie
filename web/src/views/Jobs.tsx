@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 import type { JobSummary } from "../types";
-import { CATEGORY_META, Icon, Spinner } from "../ui";
+import { CATEGORY_META, Icon, Spinner, statusLabel } from "../ui";
 import { timeAgo } from "../parts";
 
 const VERDICT_LABEL: Record<string, { text: string; tone: string; bg: string }> = {
@@ -59,7 +59,7 @@ export function Jobs() {
               </div>
               <p className="desc" style={{ margin: "10px 0 0", color: "var(--muted)", fontSize: 13.5 }}>{j.description}</p>
               <div className="fc-foot">
-                <span className="status">{j.status.replace(/_/g, " ")}</span>
+                <span className="status">{statusLabel(j.status)}</span>
                 {j.quote_count > 0 && (
                   <span style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)" }}>
                     {j.quote_count} quote{j.quote_count === 1 ? "" : "s"} →

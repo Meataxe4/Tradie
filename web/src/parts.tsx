@@ -90,9 +90,9 @@ function fmtMins(m: number): string {
 }
 
 const JOB_STEPS = [
-  { key: "ASSIGNED", label: "Assigned" },
-  { key: "QUOTED", label: "Quoted" },
-  { key: "BOOKED", label: "Booked" },
+  { key: "ASSIGNED", label: "Tradie assigned" },
+  { key: "QUOTED", label: "Price ready" },
+  { key: "BOOKED", label: "Booked in" },
   { key: "COMPLETED", label: "Done" },
 ];
 const STEP_INDEX: Record<string, number> = {

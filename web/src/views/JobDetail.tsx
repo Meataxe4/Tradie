@@ -18,6 +18,8 @@ export function JobDetail() {
   const [showTriage, setShowTriage] = useState(false);
   const [explain, setExplain] = useState<Record<string, QuoteExplanation>>({});
   const [explaining, setExplaining] = useState("");
+  // UX #2: accepting authorises a real payment hold — confirm it deliberately.
+  const [confirming, setConfirming] = useState<Quote | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -33,7 +35,7 @@ export function JobDetail() {
 
   const accept = async (quoteId: string) => {
     setBusy(true); setErr("");
-    try { await api.acceptQuote(quoteId); await load(); }
+    try { await api.acceptQuote(quoteId); setConfirming(null); await load(); }
     catch (e) { setErr((e as Error).message); }
     finally { setBusy(false); }
   };
@@ -140,7 +142,7 @@ export function JobDetail() {
                   )}
                   <div className="offer-actions">
                     {canAccept && q.status === "offered" && (
-                      <button className="btn sm" disabled={busy} onClick={() => accept(q.quote_id)}>Accept &amp; book</button>
+                      <button className="btn sm" disabled={busy} onClick={() => setConfirming(q)}>Accept &amp; book</button>
                     )}
                     {q.status === "accepted" && <span className="offer-status accepted">✓ Booked</span>}
                     <button className="btn ghost sm" onClick={() => setOpenThread(openThread === q.quote_id ? null : q.quote_id)}>
@@ -174,7 +176,7 @@ export function JobDetail() {
             <div className="card" style={{ marginTop: 16, borderColor: "var(--safe)" }}>
               <h3>{Icon.tick}You're booked with {accepted.tradie?.business_name}</h3>
               <dl className="spec">
-                <dt>Status</dt><dd>{job.booking.status}</dd>
+                <dt>Status</dt><dd>{job.booking.status === "scheduled" ? "Booked in" : job.booking.status === "completed" ? "Job done" : job.booking.status}</dd>
                 <dt>Your address</dt><dd>{job.full_address ?? "shared with your tradie"}</dd>
                 {job.booking.scheduled_for && (<><dt>Scheduled</dt><dd>{job.booking.scheduled_for}</dd></>)}
               </dl>
@@ -192,7 +194,7 @@ export function JobDetail() {
               {job.variations.map((v) => (
                 <div key={v.id} className="variation">
                   <div>
-                    <div style={{ fontWeight: 650, fontSize: 14 }}>Variation: +{money(v.amount)}</div>
+                    <div style={{ fontWeight: 650, fontSize: 14 }}>Extra work request: +{money(v.amount)}</div>
                     <div style={{ fontSize: 13, color: "var(--muted)" }}>{v.reason}</div>
                   </div>
                   {v.status === "proposed" ? (
@@ -223,6 +225,32 @@ export function JobDetail() {
         </>
       )}
       {err && <p className="err">{err}</p>}
+
+      {confirming && (
+        <div className="sheet-overlay" onClick={() => !busy && setConfirming(null)}>
+          <div className="sheet" role="dialog" aria-modal="true" aria-label="Confirm your booking" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <h3 style={{ marginTop: 0 }}>{Icon.shield}Confirm your booking</h3>
+            <dl className="payout" style={{ margin: "6px 0 0" }}>
+              <dt>Your tradie</dt><dd>{confirming.tradie?.business_name ?? "Assigned tradie"}</dd>
+              <dt>What's included</dt><dd style={{ textAlign: "right", maxWidth: 220 }}>{confirming.inclusions}</dd>
+              <div className="total" style={{ display: "contents" }}>
+                <dt>Firm price (GST incl.)</dt><dd>{money(confirming.amount)}</dd>
+              </div>
+            </dl>
+            <div className="pay-line" style={{ marginTop: 14 }}>
+              {Icon.shield}
+              <span><b>{money(confirming.amount)} is held securely — not charged.</b> Your card is only charged once you mark the job complete. Any extra work must be approved by you first.</span>
+            </div>
+            <button className="btn" style={{ width: "100%", marginTop: 16 }} disabled={busy} onClick={() => accept(confirming.quote_id)}>
+              {busy ? "Booking…" : `Hold ${money(confirming.amount)} & book`}
+            </button>
+            <button className="btn ghost" style={{ width: "100%", marginTop: 8 }} disabled={busy} onClick={() => setConfirming(null)}>
+              Not yet
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

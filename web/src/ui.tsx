@@ -104,6 +104,35 @@ export function tradeName(t: string): string {
   return t.replace(/_/g, " ");
 }
 
+/**
+ * Human status language (UX #1). Internal state names never reach a customer:
+ * they get plain-Australian phrases; the trade side gets brisk, work-shaped ones.
+ */
+const HOMEOWNER_STATUS: Record<string, string> = {
+  DRAFT: "Getting started",
+  TRIAGED: "Checking it out",
+  DIY_RESOLVED: "Sorted — safe DIY",
+  AWAITING_QUOTE: "Finding your price",
+  QUOTED: "Your price is ready",
+  BOOKED: "Booked in",
+  COMPLETED: "Job done",
+  REVIEWED: "Done & rated",
+  DECLINED: "Quote declined",
+  CANCELLED: "Cancelled",
+  EXPIRED: "Expired",
+};
+const TRADIE_STATUS: Record<string, string> = {
+  AWAITING_QUOTE: "Needs your quote",
+  QUOTED: "Quote sent",
+  BOOKED: "Booked",
+  COMPLETED: "Done",
+  REVIEWED: "Done",
+};
+export function statusLabel(status: string, audience: "homeowner" | "tradie" = "homeowner"): string {
+  const map = audience === "tradie" ? TRADIE_STATUS : HOMEOWNER_STATUS;
+  return map[status] ?? status.replace(/_/g, " ").toLowerCase();
+}
+
 export function VerdictBanner({ t }: { t: TriageResult }) {
   const vm = VMETA[t.verdict];
   const tags: string[] = [t.category];

@@ -419,6 +419,32 @@ dl.spec dd ul { margin: 0; padding-left: 18px; }
 .lead-photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .lead-photo { aspect-ratio: 1; border-radius: 10px; background-size: cover; background-position: center; border: 1px solid var(--hairline); display: block; }
 
+/* Booking confirmation sheet (UX #2) */
+.sheet-overlay { position: fixed; inset: 0; z-index: 60; background: rgba(20, 22, 26, 0.5); display: flex; align-items: flex-end; justify-content: center; animation: fadeIn 0.15s ease; }
+.sheet { width: 100%; max-width: 560px; background: var(--surface); border-radius: 18px 18px 0 0; padding: 14px 20px calc(20px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -8px 40px rgba(0,0,0,0.25); animation: sheetUp 0.22s cubic-bezier(0.32, 0.72, 0.24, 1); }
+.sheet-handle { width: 40px; height: 4px; border-radius: 999px; background: var(--hairline); margin: 0 auto 12px; }
+.sheet h3 { display: flex; align-items: center; gap: 8px; font-size: 17px; }
+.sheet h3 svg { width: 18px; height: 18px; color: var(--safe); }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sheetUp { from { transform: translateY(24px); opacity: 0.6; } to { transform: translateY(0); opacity: 1; } }
+@media (min-width: 601px) {
+  .sheet-overlay { align-items: center; padding: 20px; }
+  .sheet { border-radius: 18px; }
+}
+
+/* Emergency takeover (UX #4) */
+.emergency-takeover { position: fixed; inset: 0; z-index: 80; background: var(--emergency); color: #fff; display: flex; align-items: center; justify-content: center; padding: 24px; overflow-y: auto; }
+.et-inner { max-width: 440px; width: 100%; text-align: center; }
+.et-icon { font-size: 52px; line-height: 1; display: block; margin-bottom: 14px; }
+.emergency-takeover h1 { font-size: 27px; margin: 0 0 12px; color: #fff; letter-spacing: -0.01em; }
+.et-msg { font-size: 16.5px; line-height: 1.55; margin: 0 0 22px; color: rgba(255,255,255,0.94); }
+.et-actions { display: flex; flex-direction: column; gap: 10px; margin-bottom: 22px; }
+.et-call { display: block; background: #fff; color: var(--emergency); border-radius: 14px; padding: 16px; text-decoration: none; min-height: 44px; }
+.et-call b { display: block; font-size: 16px; }
+.et-call span { display: block; font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.et-continue { background: transparent; border: 1.5px solid rgba(255,255,255,0.65); color: #fff; border-radius: 12px; padding: 13px 18px; font-size: 14.5px; font-weight: 650; cursor: pointer; min-height: 44px; width: 100%; }
+.et-continue:hover { background: rgba(255,255,255,0.1); }
+
 /* structured review inputs (§4) */
 .star-input { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0; }
 .si-label { font-size: 14px; color: var(--ink); }
@@ -439,7 +465,14 @@ dl.spec dd ul { margin: 0; padding-left: 18px; }
    ============================================================ */
 @media (max-width: 600px) {
   html, body { overflow-x: hidden; }
-  body { font-size: 15px; }
+  body { font-size: 16px; } /* UX #10: readable for older eyes */
+
+  /* UX #10: 44px minimum touch targets on anything tappable */
+  .btn, .btn.sm, .chip, .filter-select, .icon-btn, input, select { min-height: 44px; }
+  .chip { display: inline-flex; align-items: center; }
+  .si-stars button { padding: 8px; }
+  .si-stars button svg { width: 26px; height: 26px; }
+  .page-sub, .notice, .offer-incl { font-size: 15px; }
 
   /* top bar — drop non-essential bits so it fits one row */
   .topbar-in { padding: 10px 14px; gap: 8px; }

@@ -88,6 +88,48 @@ export function LeadDetail() {
   );
 }
 
+// UX #6: tradies think in windows ("Thursday arvo"), not date strings.
+const QUICK_SLOTS = ["Today arvo", "Tomorrow morning", "Tomorrow arvo"];
+const DAY_WINDOWS = ["7–9am", "9–12", "12–3", "3–5"];
+
+function AvailabilityPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [custom, setCustom] = useState(false);
+  const [day, setDay] = useState("");
+  const [win, setWin] = useState("");
+  const pickCustom = (d: string, w: string) => {
+    setDay(d); setWin(w);
+    if (d && w) {
+      const label = new Date(d + "T00:00:00").toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" });
+      onChange(`${label}, ${w}`);
+    }
+  };
+  return (
+    <div className="field" style={{ marginBottom: 0 }}>
+      <span className="lbl">Earliest you can be there</span>
+      <div className="chips" style={{ marginTop: 2 }}>
+        {QUICK_SLOTS.map((s) => (
+          <button key={s} type="button" className={`chip ${value === s ? "active" : ""}`}
+            onClick={() => { setCustom(false); onChange(value === s ? "" : s); }}>{s}</button>
+        ))}
+        <button type="button" className={`chip ${custom ? "active" : ""}`} onClick={() => { setCustom((c) => !c); onChange(""); }}>
+          Pick a day…
+        </button>
+      </div>
+      {custom && (
+        <div style={{ marginTop: 10 }}>
+          <input type="date" value={day} onChange={(e) => pickCustom(e.target.value, win)} />
+          <div className="chips" style={{ marginTop: 8 }}>
+            {DAY_WINDOWS.map((w) => (
+              <button key={w} type="button" className={`chip ${win === w ? "active" : ""}`}
+                onClick={() => pickCustom(day, w)}>{w}</button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function QuoteForm({ jobId, onDone }: { jobId: string; onDone: () => void }) {
   const [amount, setAmount] = useState("180");
   const [inclusions, setInclusions] = useState("");
@@ -168,12 +210,10 @@ function QuoteForm({ jobId, onDone }: { jobId: string; onDone: () => void }) {
         </div>
       )}
 
-      <div className="grid two">
-        <label className="field"><span className="lbl">Your price (AUD)</span>
-          <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /></label>
-        <label className="field"><span className="lbl">Earliest availability</span>
-          <input type="date" value={avail} onChange={(e) => setAvail(e.target.value)} /></label>
-      </div>
+      <label className="field"><span className="lbl">Your price (AUD)</span>
+        <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /></label>
+      <AvailabilityPicker value={avail} onChange={setAvail} />
+      <div style={{ height: 14 }} />
       <label className="field" style={{ marginBottom: 0 }}>
         <span className="lbl">What's included</span>
         <textarea value={inclusions} onChange={(e) => setInclusions(e.target.value)}

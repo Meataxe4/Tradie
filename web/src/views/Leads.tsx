@@ -205,7 +205,7 @@ function WonCard({ won, onChange }: { won: WonLead; onChange: () => void }) {
       <div className="fc-top">
         <h4>{won.job?.job_spec?.title ?? "Booked job"}</h4>
         <span className="urgency-pill routine" style={{ color: "var(--safe)", background: "var(--safe-bg)" }}>
-          {p?.status === "captured" ? "paid" : won.booking.status}
+          {p?.status === "captured" ? "paid" : won.booking.status === "scheduled" ? "booked" : won.booking.status}
         </span>
       </div>
       <div className="fc-meta"><span className="m">{Icon.pin}{won.job?.full_address ?? won.job?.suburb}</span></div>

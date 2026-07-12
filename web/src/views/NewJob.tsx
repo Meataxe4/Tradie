@@ -56,6 +56,8 @@ export function NewJob() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [result, setResult] = useState<CreateJobResponse | null>(null);
+  // UX #4: an emergency verdict takes over the whole screen until dismissed.
+  const [emergencyAck, setEmergencyAck] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const nav = useNavigate();
 
@@ -103,6 +105,35 @@ export function NewJob() {
     }
   };
 
+  // ---- emergency takeover (UX #4): safety actions first, everything else after ----
+  if (result && result.triage.verdict === "EMERGENCY_STOP" && !emergencyAck) {
+    const gas = result.triage.category === "gas";
+    return (
+      <div className="emergency-takeover" role="alertdialog" aria-label="Emergency — act now">
+        <div className="et-inner">
+          <span className="et-icon" aria-hidden="true">⚠</span>
+          <h1>Stop — act on this now</h1>
+          <p className="et-msg">{result.triage.user_message}</p>
+          <div className="et-actions">
+            {gas && (
+              <a className="et-call" href="tel:1800427532">
+                <b>Call the gas emergency line</b>
+                <span>1800 GAS LEAK (1800 427 532)</span>
+              </a>
+            )}
+            <a className="et-call" href="tel:000">
+              <b>{gas ? "Fire, injury or immediate danger" : "Call Triple Zero"}</b>
+              <span>000</span>
+            </a>
+          </div>
+          <button className="et-continue" onClick={() => setEmergencyAck(true)}>
+            I'm safe — show me the details
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // ---- result screen ----
   if (result) {
     const isPro = result.triage.verdict !== "DIY_SAFE";
@@ -145,7 +176,7 @@ export function NewJob() {
         <TriageView triage={result.triage} overrides={result.overrides} modelVerdict={result.model_verdict} />
         <div className="row wrap" style={{ marginTop: 18 }}>
           {isPro && <button className="btn" onClick={() => nav(`/jobs/${result.job.id}`)}>{result.quote ? "View your quote →" : "View job →"}</button>}
-          <button className="btn ghost" onClick={() => { setResult(null); setDescription(""); setPhotos([]); setStep(0); }}>Post another problem</button>
+          <button className="btn ghost" onClick={() => { setResult(null); setDescription(""); setPhotos([]); setStep(0); setEmergencyAck(false); }}>Post another problem</button>
         </div>
       </div>
     );
