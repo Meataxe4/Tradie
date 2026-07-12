@@ -19,7 +19,7 @@ import { homeownerJobView, leadView, quoteView, tradieSummary } from "./views.js
 import type { Role } from "../domain/entities.js";
 import { AuthService, AuthError } from "../auth/authService.js";
 import { verifyToken, TokenError } from "../auth/tokens.js";
-import type { QuoteAssistantClient } from "../quoting/quoteAssistant.js";
+import { estimateBallpark, type QuoteAssistantClient } from "../quoting/quoteAssistant.js";
 
 export interface AppDeps {
   store: MemoryStore;
@@ -227,7 +227,27 @@ export function createApp(deps: AppDeps) {
     const payment = booking ? market.paymentForBooking(booking.id) ?? null : null;
     const variations = booking ? market.variationsForBooking(booking.id) : [];
     const reviews = booking ? market.reviewsForBooking(booking.id) : [];
-    res.json({ ...homeownerJobView(job, triage), booking, payment, variations, reviews });
+    // UX #3/#9: who's on it (waiting timeline) + typical range (over-quote note).
+    const assigned_tradie = job.assigned_tradie_id ? tradieSummary(store, job.assigned_tradie_id) : null;
+    const ballpark =
+      job.status === "AWAITING_QUOTE" || job.status === "QUOTED"
+        ? estimateBallpark(job.category, job.urgency, triage?.result.job_spec?.symptoms?.length ?? 0)
+        : null;
+    res.json({ ...homeownerJobView(job, triage), booking, payment, variations, reviews, assigned_tradie, ballpark });
+  }));
+
+  // POST /quotes/:id/decline-reassign — UX #9: keep the job, get the next trade.
+  api.post("/quotes/:id/decline-reassign", wrap((req, res) => {
+    const user = requireRole(req, "homeowner");
+    const quote = store.quotes.get(param(req, "id"));
+    if (!quote) throw new HttpError(404, "Quote not found");
+    const job = store.jobs.get(quote.job_id);
+    if (!job || job.homeowner_id !== user.id) throw new HttpError(403, "Not your job");
+    const out = market.declineAndReassign(quote.id);
+    res.json({
+      job: out.job,
+      assigned_tradie: out.assigned ? tradieSummary(store, out.assigned.user_id) : null,
+    });
   }));
 
   // GET /jobs/:id/quotes — private quote list (homeowner only).

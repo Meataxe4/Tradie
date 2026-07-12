@@ -484,6 +484,40 @@ export class MarketplaceService {
     return quote;
   }
 
+  /**
+   * UX #9: the customer declines the price but keeps the job — we reassign to
+   * the next best vetted trade (excluding anyone who has already quoted it).
+   * Keeps "assigned, not auctioned" honest: one firm price at a time, but never
+   * a take-it-or-leave-it dead end.
+   */
+  declineAndReassign(quoteId: string): { quote: Quote; job: Job; assigned: TradieProfile | null } {
+    const quote = this.mustQuote(quoteId);
+    const job = this.mustJob(quote.job_id);
+    assertQuoteTransition(quote.status, "declined");
+    quote.status = "declined";
+    this.store.quotes.set(quote.id, quote);
+
+    const triageId = this.store.triageByJob.get(job.id);
+    const triage = triageId ? this.store.triages.get(triageId) : undefined;
+    const excluded = new Set(this.store.quotesForJob(job.id).map((q) => q.tradie_id));
+    if (job.assigned_tradie_id) excluded.add(job.assigned_tradie_id);
+
+    const candidates = this.store.allTradies().filter((t) => !excluded.has(t.user_id));
+    const assigned = triage
+      ? assignBestTradie(job, triage.result, candidates, { now: this.clock() })
+      : null;
+
+    if (!assigned) {
+      // Nobody else fits — close the job honestly rather than leaving it limbo.
+      this.transitionJob(job, "DECLINED");
+      return { quote, job, assigned: null };
+    }
+    job.assigned_tradie_id = assigned.user_id;
+    job.quote_kind = "custom"; // the new trade prices it themselves
+    this.transitionJob(job, "AWAITING_QUOTE");
+    return { quote, job, assigned };
+  }
+
   postMessage(args: {
     thread_id: string;
     sender_role: MessageSenderRole;

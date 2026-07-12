@@ -9,7 +9,9 @@ const JOB_TRANSITIONS: Record<JobStatus, JobStatus[]> = {
   TRIAGED: ["DIY_RESOLVED", "AWAITING_QUOTE", "QUOTED", "CANCELLED"],
   DIY_RESOLVED: [], // terminal
   AWAITING_QUOTE: ["QUOTED", "CANCELLED", "EXPIRED"],
-  QUOTED: ["BOOKED", "DECLINED", "CANCELLED", "EXPIRED"],
+  // QUOTED → AWAITING_QUOTE: customer declined the price and the job was
+  // reassigned to the next vetted trade (decline-and-reassign, UX #9).
+  QUOTED: ["BOOKED", "AWAITING_QUOTE", "DECLINED", "CANCELLED", "EXPIRED"],
   BOOKED: ["COMPLETED", "CANCELLED"],
   COMPLETED: ["REVIEWED"],
   REVIEWED: [], // terminal

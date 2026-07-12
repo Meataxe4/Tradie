@@ -71,7 +71,6 @@ export function JobDetail() {
   const isPro = job.status !== "DIY_RESOLVED" && job.status !== "DRAFT";
   const awaiting = job.status === "AWAITING_QUOTE";
   const priceBook = job.triage?.recommended_trade;
-  const assignedName = live[0]?.tradie?.business_name;
 
   return (
     <div>
@@ -94,7 +93,7 @@ export function JobDetail() {
           {/* Quotes are the star of this screen (Airtasker-style). Triage is tucked behind a toggle. */}
           <div className="row" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <p className="eyebrow" style={{ margin: 0 }}>
-              {accepted ? "Your booking" : awaiting ? "Getting your quote" : "Your firm quote"}
+              {accepted ? "Your booking" : awaiting ? "Getting your quote" : job.status === "DECLINED" ? "Job closed" : "Your firm quote"}
             </p>
             <button className="btn ghost sm" onClick={() => setShowTriage((s) => !s)}>
               {showTriage ? "Hide triage details" : "View triage details"}
@@ -103,11 +102,38 @@ export function JobDetail() {
 
           {showTriage && job.triage && <div style={{ marginBottom: 18 }}><TriageView triage={job.triage} /></div>}
 
-          {awaiting && (
+          {job.status === "DECLINED" && (
             <div className="notice" style={{ marginBottom: 16 }}>
-              {assignedName
-                ? `We've assigned ${assignedName} — a vetted, licensed ${(priceBook ?? "trade").replace("_", " ")}. They have all your details and will send one firm price shortly. No bidding wars, no chasing.`
-                : `We're assigning a vetted, licensed ${(priceBook ?? "trade").replace("_", " ")} in your area — your firm quote will appear here shortly.`}
+              You declined this quote — no charge. There wasn't another vetted trade available for this one right
+              now, so the job is closed. Post the problem again anytime and we'll rematch you.
+            </div>
+          )}
+
+          {awaiting && (
+            <div className="wait-timeline">
+              <div className="wt-step done">
+                <span className="wt-dot">{Icon.tick}</span>
+                <div><b>Job checked &amp; routed</b><span>posted {timeAgo(job.created_at)}</span></div>
+              </div>
+              <div className="wt-step done">
+                <span className="wt-dot">{Icon.tick}</span>
+                <div>
+                  <b>{job.assigned_tradie ? `Assigned to ${job.assigned_tradie.business_name}` : "Finding your tradie"}</b>
+                  <span>{job.assigned_tradie ? `Vetted, licensed ${(priceBook ?? "trade").replace("_", " ")} · ${job.assigned_tradie.rating_avg.toFixed(1)}★` : "matching a vetted local trade"}</span>
+                </div>
+              </div>
+              <div className="wt-step current">
+                <span className="wt-dot pulse" />
+                <div>
+                  <b>Waiting on your firm price</b>
+                  <span>usually within 2 hours — we'll nudge them if it's slow</span>
+                </div>
+              </div>
+              {job.ballpark && (
+                <div className="wt-ballpark">
+                  Typical range for this kind of job: <b>{money(job.ballpark.low)} – {money(job.ballpark.high)}</b>
+                </div>
+              )}
             </div>
           )}
 
@@ -133,6 +159,13 @@ export function JobDetail() {
                   <p className="offer-incl">{q.inclusions}</p>
                   {q.kind === "price_book" && (
                     <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "6px 0 0" }}>Firm, GST-inclusive price from our price book — no site visit needed.</p>
+                  )}
+                  {/* UX #9: acknowledge an above-range price before the customer notices it themselves. */}
+                  {q.kind !== "price_book" && q.status === "offered" && job.ballpark && q.amount > job.ballpark.high && (
+                    <p className="over-range">
+                      This is above the typical range ({money(job.ballpark.low)}–{money(job.ballpark.high)}) — often due to access, materials or job complexity.
+                      Ask why in messages, or decline below and we'll reassign.
+                    </p>
                   )}
                   {t && <TrustRow tradie={t} />}
                   {t && t.strengths.length > 0 && (
@@ -165,6 +198,16 @@ export function JobDetail() {
                         </>
                       )}
                     </div>
+                  )}
+                  {canAccept && q.status === "offered" && (
+                    <button className="reassign-link" disabled={busy} onClick={async () => {
+                      setBusy(true); setErr("");
+                      try { await api.declineReassign(q.quote_id); await load(); }
+                      catch (e) { setErr((e as Error).message); }
+                      finally { setBusy(false); }
+                    }}>
+                      Not right for you? Decline &amp; we'll reassign — no charge
+                    </button>
                   )}
                   {openThread === q.quote_id && <div style={{ marginTop: 14 }}><Thread threadId={q.quote_id} /></div>}
                 </div>

@@ -311,9 +311,22 @@ export function handleRequest(method: string, path: string, body: any, authHeade
     // homeowner
     if (method === "POST" && seg[0] === "jobs" && seg.length === 1) { const u = need("homeowner"); if (!body?.description) return err(400, "description required"); const r = createJob({ ...body, homeowner_id: u.sub }); return ok({ job: jobSummary(r.job), triage: r.triage, overrides: r.overrides, model_verdict: r.model_verdict, assigned_tradie: r.assigned ? tradieSummary(r.assigned.user_id) : null, quote: r.quote ? quoteView(r.quote) : null, vision: r.vision, ballpark: r.ballpark }, 201); }
     if (method === "GET" && seg[0] === "jobs" && seg.length === 1) { const u = need("homeowner"); return ok([...db.jobs.values()].filter((j) => j.homeowner_id === u.sub).sort((a, b) => b.created_at.localeCompare(a.created_at)).map(jobSummary)); }
-    if (method === "GET" && seg[0] === "jobs" && seg.length === 2) { const u = need("homeowner"); const job = db.jobs.get(seg[1]!); if (!job || job.homeowner_id !== u.sub) return err(404, "Job not found"); const tri = db.triages.get(job.id); const booking = [...db.bookings.values()].find((b) => b.job_id === job.id) ?? null; return ok({ ...job, triage: tri?.result ?? null, vision: tri?.vision ?? null, booking, payment: booking ? paymentForBooking(booking.id) : null, variations: booking ? variationsForBooking(booking.id) : [], reviews: booking ? reviewsForBooking(booking.id) : [] }); }
+    if (method === "GET" && seg[0] === "jobs" && seg.length === 2) { const u = need("homeowner"); const job = db.jobs.get(seg[1]!); if (!job || job.homeowner_id !== u.sub) return err(404, "Job not found"); const tri = db.triages.get(job.id); const booking = [...db.bookings.values()].find((b) => b.job_id === job.id) ?? null; const ball = job.status === "AWAITING_QUOTE" || job.status === "QUOTED" ? qBallpark(job.category, job.urgency, tri?.result.job_spec?.symptoms?.length ?? 0) : null; return ok({ ...job, triage: tri?.result ?? null, vision: tri?.vision ?? null, booking, payment: booking ? paymentForBooking(booking.id) : null, variations: booking ? variationsForBooking(booking.id) : [], reviews: booking ? reviewsForBooking(booking.id) : [], assigned_tradie: job.assigned_tradie_id ? tradieSummary(job.assigned_tradie_id) : null, ballpark: ball }); }
     if (method === "GET" && seg[0] === "jobs" && seg[2] === "quotes") { const u = need("homeowner"); const job = db.jobs.get(seg[1]!); if (!job || job.homeowner_id !== u.sub) return err(404, "Job not found"); return ok(quotesForJob(job.id).map(quoteView)); }
     if (method === "POST" && seg[0] === "quotes" && seg[2] === "accept") return doAccept(need("homeowner"), seg[1]!);
+    if (method === "POST" && seg[0] === "quotes" && seg[2] === "decline-reassign") {
+      const u = need("homeowner"); const q = db.quotes.get(seg[1]!); if (!q) return err(404, "Quote not found");
+      const job = db.jobs.get(q.job_id); if (!job || job.homeowner_id !== u.sub) return err(403, "Not your job");
+      if (q.status !== "offered") return err(400, "This quote has already been decided");
+      q.status = "declined";
+      const tri = db.triages.get(job.id);
+      const excluded = new Set(quotesForJob(job.id).map((x: any) => x.tradie_id)); if (job.assigned_tradie_id) excluded.add(job.assigned_tradie_id);
+      const next = [...db.tradies.values()].filter((t) => !excluded.has(t.user_id) && tradieMatches(t, job, tri?.result.required_licence_class ?? null))
+        .sort((a, b) => (b.rating_avg || 0) - (a.rating_avg || 0))[0] ?? null;
+      if (!next) { job.status = "DECLINED"; return ok({ job: jobSummary(job), assigned_tradie: null }); }
+      job.assigned_tradie_id = next.user_id; job.quote_kind = "custom"; job.status = "AWAITING_QUOTE";
+      return ok({ job: jobSummary(job), assigned_tradie: tradieSummary(next.user_id) });
+    }
 
     // tradie
     if (method === "GET" && seg[0] === "leads" && seg.length === 1) { const u = need("tradie"); const ACTIVE = new Set(["AWAITING_QUOTE", "QUOTED", "BOOKED"]); return ok([...db.jobs.values()].filter((j) => j.assigned_tradie_id === u.sub && ACTIVE.has(j.status)).sort((a, b) => b.created_at.localeCompare(a.created_at)).map((j) => leadView(j, u.sub))); }

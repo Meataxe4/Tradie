@@ -7,11 +7,29 @@ import { timeAgo } from "../parts";
 import { ReviewForm } from "./ReviewForm";
 
 type Sort = "new" | "old" | "fewest";
+type Tab = "quote" | "booked" | "money";
+
+// UX #3 (trade side): speed-to-quote is the tradie's ranking lever — show it.
+const QUOTE_SLA_MS = 2 * 3600 * 1000;
+function SlaLine({ createdAt }: { createdAt: string }) {
+  const left = QUOTE_SLA_MS - (Date.now() - new Date(createdAt).getTime());
+  const late = left <= 0;
+  const mins = Math.abs(Math.round(left / 60000));
+  const label = late
+    ? "Running late — quote now to protect your response rating"
+    : `Quote within ${mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`} to keep your fast-response rating`;
+  return (
+    <span className={`sla-line ${late ? "late" : ""}`}>
+      {Icon.clock}{label}
+    </span>
+  );
+}
 
 export function Leads() {
   const [leads, setLeads] = useState<Lead[] | null>(null);
   const [won, setWon] = useState<WonLead[]>([]);
   const [err, setErr] = useState("");
+  const [tab, setTab] = useState<Tab>("quote");
 
   // filters
   const [q, setQ] = useState("");
@@ -59,6 +77,12 @@ export function Leads() {
   if (err) return <p className="err">{err}</p>;
   if (!leads) return <Spinner />;
 
+  // UX #5: the tradie's day is "what needs quoting, what's booked, what's paid".
+  const booked = won.filter((w) => w.booking.status === "scheduled");
+  const paidTotal = won.reduce((s, w) => s + (w.payment?.status === "captured" ? w.payment.trade_payout ?? 0 : 0), 0);
+  const pendingTotal = won.reduce((s, w) => s + (w.payment?.status === "authorized" ? w.payment.trade_payout ?? 0 : 0), 0);
+  const needsQuote = leads.filter((l) => !l.my_quote).length;
+
   return (
     <div>
       <p className="eyebrow">Your work</p>
@@ -68,7 +92,37 @@ export function Leads() {
         quote (or just turn up for price-book work); the customer's details stay private until you're booked.
       </p>
 
-      {leads.length > 0 && (
+      <div className="seg">
+        <button className={tab === "quote" ? "active" : ""} onClick={() => setTab("quote")}>
+          To quote{needsQuote > 0 ? ` (${needsQuote})` : ""}
+        </button>
+        <button className={tab === "booked" ? "active" : ""} onClick={() => setTab("booked")}>
+          Booked{booked.length > 0 ? ` (${booked.length})` : ""}
+        </button>
+        <button className={tab === "money" ? "active" : ""} onClick={() => setTab("money")}>Money</button>
+      </div>
+
+      {tab === "booked" && (
+        <div className="list">
+          {booked.length === 0 && <div className="empty">Nothing booked in right now. Quotes you win land here.</div>}
+          {booked.map((w) => <WonCard key={w.booking.id} won={w} onChange={reload} />)}
+        </div>
+      )}
+
+      {tab === "money" && (
+        <div>
+          <div className="earnings">
+            <div><span className="e-label">Paid to you</span><span className="e-amt">{money(paidTotal)}</span></div>
+            <div><span className="e-label">Held for completed work</span><span className="e-amt">{money(pendingTotal)}</span></div>
+          </div>
+          <div className="list">
+            {won.length === 0 && <div className="empty">No payouts yet — win your first job and the money lands here.</div>}
+            {won.map((w) => <WonCard key={w.booking.id} won={w} onChange={reload} />)}
+          </div>
+        </div>
+      )}
+
+      {tab === "quote" && leads.length > 0 && (
         <div className="filterbar">
           <div className="search">
             {Icon.search}
@@ -105,19 +159,19 @@ export function Leads() {
         </div>
       )}
 
-      {leads.length > 0 && (
+      {tab === "quote" && leads.length > 0 && (
         <div className="filter-meta">
           <span>{filtered.length} of {leads.length} job{leads.length === 1 ? "" : "s"}</span>
           {active && <button className="filter-clear" onClick={clear}>Clear filters</button>}
         </div>
       )}
 
-      {leads.length === 0 && <div className="empty">No open jobs match your profile right now. New ones will appear here.</div>}
-      {leads.length > 0 && filtered.length === 0 && (
+      {tab === "quote" && leads.length === 0 && <div className="empty">No open jobs match your profile right now. New ones will appear here.</div>}
+      {tab === "quote" && leads.length > 0 && filtered.length === 0 && (
         <div className="empty">No jobs match these filters. <button className="filter-clear" onClick={clear}>Clear filters</button></div>
       )}
 
-      <div className="list">
+      {tab === "quote" && <div className="list">
         {filtered.map((l) => {
           const meta = CATEGORY_META[l.category] ?? CATEGORY_META.other!;
           return (
@@ -138,6 +192,7 @@ export function Leads() {
                 </div>
                 <span className={`urgency-pill ${l.urgency}`}>{l.urgency}</span>
               </div>
+              {l.status === "AWAITING_QUOTE" && !l.my_quote && <SlaLine createdAt={l.created_at} />}
               <div className="fc-foot">
                 <span style={{ fontSize: 13, color: "var(--muted)" }}>
                   {l.status === "AWAITING_QUOTE"
@@ -155,16 +210,7 @@ export function Leads() {
             </Link>
           );
         })}
-      </div>
-
-      {won.length > 0 && (
-        <div style={{ marginTop: 30 }}>
-          <p className="eyebrow">Your booked jobs & payouts</p>
-          <div className="list">
-            {won.map((w) => <WonCard key={w.booking.id} won={w} onChange={reload} />)}
-          </div>
-        </div>
-      )}
+      </div>}
     </div>
   );
 }

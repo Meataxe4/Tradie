@@ -115,6 +115,8 @@ export interface JobDetail extends JobSummary {
   payment: Payment | null;
   variations: Variation[];
   reviews: Review[];
+  assigned_tradie?: TradieSummary | null;
+  ballpark?: { low: number; high: number } | null;
 }
 
 export interface VisionSummary {

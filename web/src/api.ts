@@ -17,6 +17,7 @@ import type {
   ReplySuggestion,
   Review,
   ReviewResponseDraft,
+  TradieSummary,
   VariationDraft,
   WonLead,
 } from "./types";
@@ -115,6 +116,8 @@ export const api = {
   jobQuotes: (id: string) => req<Quote[]>("GET", `/jobs/${id}/quotes`),
   acceptQuote: (id: string) =>
     req<{ quote: Quote; booking: Booking }>("POST", `/quotes/${id}/accept`),
+  declineReassign: (id: string) =>
+    req<{ job: JobSummary; assigned_tradie: TradieSummary | null }>("POST", `/quotes/${id}/decline-reassign`),
   explainQuote: (quoteId: string) => req<QuoteExplanation>("POST", `/quotes/${quoteId}/explain`),
 
   // tradie

@@ -184,6 +184,45 @@ async function completedWithReview(market: MarketplaceService) {
   return { booking, review };
 }
 
+describe("decline & reassign (UX #9)", () => {
+  it("reassigns a declined quote to the next vetted trade and re-opens quoting", async () => {
+    const { market } = build();
+    // Ceiling fan job: spark-1 wins (electrical), price-book quote → QUOTED.
+    const created = await market.createJob({
+      homeowner_id: "home-1",
+      description: "A ceiling fan in the lounge won't turn on",
+      photos: [], suburb: "Newtown", postcode: "2042", state: "NSW",
+    });
+    expect(created.job.assigned_tradie_id).toBe("spark-1");
+    // Only one electrician in the seed, so reassign finds nobody → closes honestly.
+    const out = market.declineAndReassign(created.quote!.id);
+    expect(out.quote.status).toBe("declined");
+    expect(out.assigned).toBeNull();
+    expect(out.job.status).toBe("DECLINED");
+  });
+
+  it("moves the job to the next trade when one exists", async () => {
+    const { store, market } = build();
+    // Add a second verified electrician so reassignment has somewhere to go.
+    store.users.set("spark-2", { id: "spark-2", role: "tradie", email: "s2@example.com", created_at: NOW, status: "active" });
+    store.tradies.set("spark-2", {
+      user_id: "spark-2", business_name: "Marrickville Sparks", abn: "111", trades: ["electrical"],
+      licences: [{ number: "EC-2", class: "Unrestricted electrical licence", state: "NSW", verified_status: "verified", expiry: "2027-01-01" }],
+      insurance: { public_liability_expiry: "2027-01-01" }, service_postcodes: ["2042"],
+      rating_avg: 4.5, jobs_completed: 10, verified_status: "verified", avg_response_minutes: 30,
+    });
+    const created = await market.createJob({
+      homeowner_id: "home-1",
+      description: "A ceiling fan in the lounge won't turn on",
+      photos: [], suburb: "Newtown", postcode: "2042", state: "NSW",
+    });
+    const out = market.declineAndReassign(created.quote!.id);
+    expect(out.assigned?.user_id).toBe("spark-2");
+    expect(out.job.status).toBe("AWAITING_QUOTE");
+    expect(out.job.quote_kind).toBe("custom");
+  });
+});
+
 describe("Sorted By Copilot — the other AI aids", () => {
   it("#1 drafts a fair, rounded variation and masks contact detail", async () => {
     const { market } = build();
