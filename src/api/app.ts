@@ -19,6 +19,7 @@ import { homeownerJobView, leadView, quoteView, tradieSummary } from "./views.js
 import type { Role } from "../domain/entities.js";
 import { AuthService, AuthError } from "../auth/authService.js";
 import { verifyToken, TokenError } from "../auth/tokens.js";
+import type { QuoteAssistantClient } from "../quoting/quoteAssistant.js";
 
 export interface AppDeps {
   store: MemoryStore;
@@ -28,6 +29,8 @@ export interface AppDeps {
   staticDir?: string;
   /** HS256 signing secret for session tokens. */
   authSecret?: string;
+  /** AI Quote Assistant client; defaults to the deterministic mock. */
+  quoteAssistant?: QuoteAssistantClient;
 }
 
 class HttpError extends Error {
@@ -48,7 +51,7 @@ export function createApp(deps: AppDeps) {
   const clock = deps.clock ?? (() => new Date().toISOString());
   const secret = deps.authSecret ?? "dev-insecure-secret-change-in-production";
   const triageSvc = new TriageService({ llm: deps.llm, clock });
-  const market = new MarketplaceService(store, triageSvc, clock);
+  const market = new MarketplaceService(store, triageSvc, clock, undefined, deps.quoteAssistant);
   const authSvc = new AuthService(store, secret);
 
   // Session identity from the Bearer token.
@@ -270,6 +273,14 @@ export function createApp(deps: AppDeps) {
       earliest_availability: b.earliest_availability,
     });
     res.status(201).json({ quote_id: quote.id, status: quote.status, thread_id: quote.id });
+  }));
+
+  // POST /leads/:id/draft-quote — AI Quote Assistant drafts a firm quote for the
+  // assigned trade (custom jobs). Returns a draft to edit; nothing is persisted.
+  api.post("/leads/:id/draft-quote", wrap(async (req, res) => {
+    const user = requireRole(req, "tradie");
+    const draft = await market.draftQuote({ job_id: param(req, "id"), tradie_id: user.id });
+    res.json(draft);
   }));
 
   // GET /me/quotes — the tradie's own submitted quotes (with job + thread).

@@ -15,6 +15,11 @@ import {
 } from "../domain/stateMachines.js";
 import { computeFee } from "../payments/fees.js";
 import { MockPaymentProvider, type PaymentProvider } from "../payments/provider.js";
+import {
+  MockQuoteAssistantClient,
+  type QuoteAssistantClient,
+  type QuoteDraft,
+} from "../quoting/quoteAssistant.js";
 import type {
   AustralianState,
   Booking,
@@ -53,14 +58,17 @@ export interface CreateJobResult {
 
 export class MarketplaceService {
   private readonly payments: PaymentProvider;
+  private readonly quoteAssistant: QuoteAssistantClient;
 
   constructor(
     private readonly store: MemoryStore,
     private readonly triageSvc: TriageService,
     private readonly clock: () => string = () => new Date().toISOString(),
     payments?: PaymentProvider,
+    quoteAssistant?: QuoteAssistantClient,
   ) {
     this.payments = payments ?? new MockPaymentProvider();
+    this.quoteAssistant = quoteAssistant ?? new MockQuoteAssistantClient();
   }
 
   async createJob(input: CreateJobInput): Promise<CreateJobResult> {
@@ -203,6 +211,54 @@ export class MarketplaceService {
     earliest_availability?: string;
   }): Quote {
     return this.submitFirmQuote(args);
+  }
+
+  /**
+   * AI Quote Assistant: draft a firm quote for the assigned trade on a custom
+   * job. Seeded with the platform's own triage job-spec and any price-book
+   * anchor — context a blank chat box can't provide. The draft is an aid; the
+   * trade edits it and submits through submitFirmQuote. Nothing is persisted.
+   */
+  async draftQuote(args: { job_id: string; tradie_id: string }): Promise<QuoteDraft> {
+    const job = this.mustJob(args.job_id);
+    if (job.assigned_tradie_id !== args.tradie_id) {
+      throw new Error("This job isn't assigned to you");
+    }
+    if (job.status !== "AWAITING_QUOTE") {
+      throw new Error(`Job ${job.id} isn't awaiting a quote (status ${job.status})`);
+    }
+    const triageId = this.store.triageByJob.get(job.id);
+    const triage = triageId ? this.store.triages.get(triageId) : undefined;
+    const spec = triage?.result.job_spec ?? null;
+    // A custom job normally has no price-book match, but check anyway so the
+    // assistant leads with the platform's own number whenever one exists.
+    const anchor = priceBookLookup(job.category, `${job.description} ${spec?.title ?? ""}`);
+
+    const draft = await this.quoteAssistant.draft({
+      category: job.category,
+      suburb: job.suburb,
+      urgency: job.urgency,
+      required_licence_class: triage?.result.required_licence_class ?? null,
+      job_spec: spec
+        ? {
+            title: spec.title,
+            summary: spec.summary,
+            symptoms: spec.symptoms,
+            questions_for_site_visit: spec.questions_for_site_visit,
+          }
+        : null,
+      description: job.description,
+      price_book_anchor: anchor ? { label: anchor.label, amount: anchor.amount } : null,
+    });
+
+    // Defence in depth (§9): the customer-facing text goes through the same
+    // contact-masking filter as in-app messages, so a draft can never leak a
+    // way to take the job off-platform.
+    return {
+      ...draft,
+      customer_message: maskContactInfo(draft.customer_message).body,
+      scope_of_work: maskContactInfo(draft.scope_of_work).body,
+    };
   }
 
   /**

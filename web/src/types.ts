@@ -160,6 +160,20 @@ export interface Quote {
   created_at: string;
 }
 
+export interface QuoteLineItem {
+  label: string;
+  amount: number;
+}
+
+export interface QuoteDraft {
+  suggested_amount: number;
+  line_items: QuoteLineItem[];
+  scope_of_work: string;
+  customer_message: string;
+  assumptions: string[];
+  source: "assistant" | "claude";
+}
+
 export interface Lead {
   job_id: string;
   category: string;

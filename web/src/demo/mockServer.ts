@@ -94,6 +94,46 @@ function priceBookLookup(category: string, text: string) {
   return hit ? { key: hit.key, label: hit.label, amount: hit.amount } : null;
 }
 
+// ---------- AI Quote Assistant (mirrors src/quoting) ----------
+const Q_RATES: Record<string, { callout: number; hourly: number }> = {
+  electrical: { callout: 8800, hourly: 12000 }, plumbing_water: { callout: 9900, hourly: 13500 },
+  gas: { callout: 12000, hourly: 15000 }, hvac: { callout: 12000, hourly: 14000 },
+  structural: { callout: 15000, hourly: 16000 }, carpentry: { callout: 7000, hourly: 9500 },
+  appliance: { callout: 9000, hourly: 11000 }, locksmith: { callout: 9000, hourly: 12000 },
+  handyman: { callout: 6500, hourly: 8500 }, other: { callout: 8000, hourly: 10000 },
+};
+const Q_REGULATED = new Set(["electrical", "gas", "plumbing_water", "hvac"]);
+const q500 = (c: number) => Math.round(c / 500) * 500;
+const qMoney = (c: number) => `$${(c / 100).toFixed(c % 100 === 0 ? 0 : 2)}`;
+function draftQuote(job: any): AnyMap {
+  const tri = db.triages.get(job.id); const spec = tri?.result.job_spec ?? null;
+  const rate = Q_RATES[job.category] ?? Q_RATES.other!;
+  const title = String(spec?.title ?? job.description).trim();
+  const summary = String(spec?.summary ?? job.description).trim();
+  const symptoms: string[] = spec?.symptoms ?? []; const checks: string[] = spec?.questions_for_site_visit ?? [];
+  const regulated = Q_REGULATED.has(job.category);
+  const anchor = priceBookLookup(job.category, `${job.description} ${spec?.title ?? ""}`);
+  let hours = 1.5; if (symptoms.length >= 2) hours += 0.5;
+  if (job.urgency === "emergency") hours += 0.5; else if (job.urgency === "urgent") hours += 0.25;
+  const items: Array<{ label: string; amount: number }> = [];
+  if (anchor) { items.push({ label: anchor.label, amount: anchor.amount }); if (job.urgency === "emergency") items.push({ label: "After-hours / emergency attendance", amount: 6000 }); }
+  else {
+    const labour = Math.round(rate.hourly * hours); const materials = Math.max(2000, q500(Math.round(labour * 0.15)));
+    items.push({ label: "Call-out & on-site diagnosis", amount: rate.callout });
+    items.push({ label: `Labour (approx. ${hours.toFixed(hours % 1 === 0 ? 0 : 1)} hr)`, amount: labour });
+    items.push({ label: "Materials & consumables allowance", amount: materials });
+  }
+  const raw = items.reduce((s, i) => s + i.amount, 0); const total = Math.max(q500(raw), 500);
+  items[items.length - 1]!.amount += total - raw;
+  const certify = regulated ? "test and provide a compliance certificate" : "test and confirm it's working";
+  const scope = `Attend site and fault-find the ${title.toLowerCase()}.${symptoms.length ? ` Reported: ${symptoms.join("; ")}.` : ""} Carry out the repair, then ${certify} before leaving.`;
+  const assumptions = ["Standard access to the work area during business hours.", "No concealed damage (water, pest or structural) behind the fault."];
+  if (regulated) assumptions.push("Scope confirmed against NSW licensing requirements on site.");
+  if (checks.length) assumptions.push(`Subject to on-site checks: ${checks.join("; ")}.`);
+  const customer_message = `Thanks for the details — I've reviewed what Sorted By sent through. Based on ${summary.toLowerCase()}, my firm, GST-inclusive price is ${qMoney(total)}. That covers ${anchor ? anchor.label.toLowerCase() : "attendance, diagnosis, labour and materials"}, with ${certify}. Payment's held securely by Sorted By and only released once you're happy the job's done. If anything extra comes up on site, I'll send it as a variation for you to approve first.`;
+  return { suggested_amount: total, line_items: items, scope_of_work: mask(scope).body, customer_message: mask(customer_message).body, assumptions, source: "assistant" };
+}
+
 // ---------- fees + strengths ----------
 function computeFee(amount: number) { const platform_fee = Math.round((amount * 500) / 10000); return { amount, platform_fee, trade_payout: amount - platform_fee }; }
 const STRENGTH_LABELS: Record<string, string> = { quality: "Great workmanship", timeliness: "Always on time", communication: "Great communicator", tidiness: "Spotless cleanup", value: "Great value" };
@@ -228,6 +268,7 @@ export function handleRequest(method: string, path: string, body: any, authHeade
     if (method === "GET" && seg[0] === "leads" && seg.length === 1) { const u = need("tradie"); const ACTIVE = new Set(["AWAITING_QUOTE", "QUOTED", "BOOKED"]); return ok([...db.jobs.values()].filter((j) => j.assigned_tradie_id === u.sub && ACTIVE.has(j.status)).sort((a, b) => b.created_at.localeCompare(a.created_at)).map((j) => leadView(j, u.sub))); }
     if (method === "GET" && seg[0] === "leads" && seg.length === 2) { const u = need("tradie"); const job = db.jobs.get(seg[1]!); if (!job) return err(404, "Lead not found"); return ok(leadView(job, u.sub)); }
     if (method === "POST" && seg[0] === "jobs" && seg[2] === "quotes") return doFirmQuote(need("tradie"), seg[1]!, body);
+    if (method === "POST" && seg[0] === "leads" && seg[2] === "draft-quote") { const u = need("tradie"); const job = db.jobs.get(seg[1]!); if (!job) return err(404, "Lead not found"); if (job.assigned_tradie_id !== u.sub) return err(400, "This job isn't assigned to you"); if (job.status !== "AWAITING_QUOTE") return err(400, "Job isn't awaiting a quote"); return ok(draftQuote(job)); }
     if (method === "GET" && seg[0] === "me" && seg[1] === "quotes") { const u = need("tradie"); return ok([...db.quotes.values()].filter((q) => q.tradie_id === u.sub).map((q) => ({ ...quoteView(q), thread_id: q.id, job: db.jobs.get(q.job_id) ? leadView(db.jobs.get(q.job_id), u.sub) : null }))); }
     if (method === "GET" && seg[0] === "me" && seg[1] === "leads" && seg[2] === "won") { const u = need("tradie"); return ok([...db.bookings.values()].filter((b) => b.tradie_id === u.sub).map((b) => ({ booking: b, thread_id: b.quote_id, job: db.jobs.get(b.job_id) ? leadView(db.jobs.get(b.job_id), u.sub) : null, payment: paymentForBooking(b.id), variations: variationsForBooking(b.id), reviews: reviewsForBooking(b.id) }))); }
 

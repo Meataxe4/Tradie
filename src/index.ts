@@ -12,7 +12,7 @@ import { dirname, resolve } from "node:path";
 import Database from "better-sqlite3";
 import { createApp } from "./api/app.js";
 import { MemoryStore } from "./store/memoryStore.js";
-import { createLlmClient } from "./config.js";
+import { createLlmClient, createQuoteAssistant } from "./config.js";
 import { seed, seedDemoJobs } from "./seed.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -34,9 +34,11 @@ seed(store);
 await seedDemoJobs(store);
 
 const { client, kind } = createLlmClient();
+const { client: quoteAssistant } = createQuoteAssistant();
 const app = createApp({
   store,
   llm: client,
+  quoteAssistant,
   staticDir,
   authSecret: process.env.AUTH_SECRET,
 });

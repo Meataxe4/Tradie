@@ -11,6 +11,7 @@ import type {
   Message,
   MyQuote,
   Quote,
+  QuoteDraft,
   RegisterInput,
   WonLead,
 } from "./types";
@@ -116,6 +117,7 @@ export const api = {
     jobId: string,
     input: { amount: number; inclusions: string; earliest_availability?: string },
   ) => req<{ quote_id: string; status: string; thread_id: string }>("POST", `/jobs/${jobId}/quotes`, input),
+  draftQuote: (jobId: string) => req<QuoteDraft>("POST", `/leads/${jobId}/draft-quote`),
   myQuotes: () => req<MyQuote[]>("GET", "/me/quotes"),
   wonLeads: () => req<WonLead[]>("GET", "/me/leads/won"),
 

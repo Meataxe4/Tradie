@@ -5,6 +5,7 @@ import type { Lead } from "../types";
 import { Icon, Spinner, money, tradeName } from "../ui";
 import { Avatar, memberSince } from "../parts";
 import { Thread } from "./Thread";
+import type { QuoteDraft } from "../types";
 
 export function LeadDetail() {
   const { id = "" } = useParams();
@@ -81,6 +82,23 @@ function QuoteForm({ jobId, onDone }: { jobId: string; onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
+  const [draft, setDraft] = useState<QuoteDraft | null>(null);
+  const [drafting, setDrafting] = useState(false);
+
+  const runDraft = async () => {
+    setDrafting(true); setErr("");
+    try {
+      const d = await api.draftQuote(jobId);
+      setDraft(d);
+      setAmount(String(d.suggested_amount / 100));
+      setInclusions(d.scope_of_work);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setDrafting(false);
+    }
+  };
+
   const submit = async () => {
     const dollars = Number(amount);
     if (!dollars || dollars <= 0) { setErr("Enter a valid quote amount."); return; }
@@ -103,6 +121,40 @@ function QuoteForm({ jobId, onDone }: { jobId: string; onDone: () => void }) {
     <div className="card">
       <h3>{Icon.pro}Send your firm quote</h3>
       <p className="notice" style={{ marginBottom: 14 }}>This job's assigned to you — no bidding war. Give one firm, GST-inclusive price. Payment is held on booking and lands automatically when the job's done.</p>
+
+      <div className="ai-draft-cta">
+        <div>
+          <b>Draft it with AI</b>
+          <span>Uses the job's triage detail and Sorted By price guidance to build a firm quote you can edit.</span>
+        </div>
+        <button className="btn ghost sm" type="button" disabled={drafting} onClick={runDraft}>
+          {drafting ? "Drafting…" : "✨ Draft with AI"}
+        </button>
+      </div>
+
+      {draft && (
+        <div className="ai-draft">
+          <div className="ai-draft-head">
+            <span className="ai-badge">✨ AI draft</span>
+            <span className="ai-total">{money(draft.suggested_amount)}</span>
+          </div>
+          <dl className="payout">
+            {draft.line_items.map((li, i) => (
+              <div key={i} style={{ display: "contents" }}><dt>{li.label}</dt><dd>{money(li.amount)}</dd></div>
+            ))}
+            <div className="total" style={{ display: "contents" }}><dt>Firm total (GST incl.)</dt><dd>{money(draft.suggested_amount)}</dd></div>
+          </dl>
+          {draft.assumptions.length > 0 && (
+            <ul className="ai-assumptions">{draft.assumptions.map((a, i) => <li key={i}>{a}</li>)}</ul>
+          )}
+          <div className="ai-msg">
+            <span className="lbl">Suggested note to the customer</span>
+            <p>{draft.customer_message}</p>
+          </div>
+          <p className="ai-note">Review and adjust below — you're sending a firm price. Any extra work goes through the customer as a variation.</p>
+        </div>
+      )}
+
       <div className="grid two">
         <label className="field"><span className="lbl">Your price (AUD)</span>
           <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /></label>
