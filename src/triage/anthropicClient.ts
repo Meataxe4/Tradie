@@ -24,6 +24,7 @@ export interface AnthropicClientOptions {
 }
 
 export class AnthropicTriageClient implements TriageLlmClient {
+  readonly supportsVision = true;
   private readonly apiKey: string;
   private readonly model: string;
   private readonly maxTokens: number;
@@ -35,11 +36,26 @@ export class AnthropicTriageClient implements TriageLlmClient {
   }
 
   async classify(input: TriageInput): Promise<ModelTriage> {
+    const images = input.images ?? [];
+    const captions = (input.captions ?? []).filter((c) => c && c.trim());
     const userText =
       `Homeowner problem description:\n${input.description}\n\n` +
-      `Photos attached: ${input.photoCount}\n` +
+      (captions.length ? `Photo notes from the homeowner:\n- ${captions.join("\n- ")}\n\n` : "") +
+      `Photos attached: ${images.length || input.photoCount}\n` +
       (input.suburb ? `Suburb: ${input.suburb}\n` : "") +
+      (images.length
+        ? "\nThe attached photos are evidence. Use them to spot hazards — scorching, " +
+          "smoke damage, melted or exposed wiring, water near electrical, corrosion, " +
+          "structural cracks. If a photo shows danger, ESCALATE. A photo can mislead, " +
+          "so never use one to downgrade risk or justify DIY.\n"
+        : "") +
       `\nReturn ONLY the JSON triage object.`;
+
+    // Multimodal content: the text block plus one image block per photo.
+    const content: unknown[] = [{ type: "text", text: userText }];
+    for (const im of images) {
+      content.push({ type: "image", source: { type: "base64", media_type: im.media_type, data: im.data } });
+    }
 
     const res = await fetch(ANTHROPIC_URL, {
       method: "POST",
@@ -53,7 +69,7 @@ export class AnthropicTriageClient implements TriageLlmClient {
         max_tokens: this.maxTokens,
         temperature: 0.1,
         system: TRIAGE_SYSTEM_PROMPT,
-        messages: [{ role: "user", content: userText }],
+        messages: [{ role: "user", content }],
       }),
     });
 

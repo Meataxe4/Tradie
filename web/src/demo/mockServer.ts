@@ -105,6 +105,14 @@ const Q_RATES: Record<string, { callout: number; hourly: number }> = {
 const Q_REGULATED = new Set(["electrical", "gas", "plumbing_water", "hvac"]);
 const q500 = (c: number) => Math.round(c / 500) * 500;
 const qMoney = (c: number) => `$${(c / 100).toFixed(c % 100 === 0 ? 0 : 2)}`;
+function qBallpark(category: string, urgency: string, symptomCount = 0) {
+  const rate = Q_RATES[category] ?? Q_RATES.other!;
+  let hours = 1.5; if (symptomCount >= 2) hours += 0.5;
+  if (urgency === "emergency") hours += 0.5; else if (urgency === "urgent") hours += 0.25;
+  const materials = Math.max(2000, q500(Math.round(rate.hourly * hours * 0.15)));
+  const point = rate.callout + Math.round(rate.hourly * hours) + materials;
+  return { low: q500(Math.round(point * 0.85)), high: q500(Math.round(point * 1.3)) };
+}
 function draftQuote(job: any): AnyMap {
   const tri = db.triages.get(job.id); const spec = tri?.result.job_spec ?? null;
   const rate = Q_RATES[job.category] ?? Q_RATES.other!;
@@ -206,7 +214,7 @@ function reviewsForBooking(bid: string) { return [...db.reviews.values()].filter
 function leadView(job: any, tradieId: string) {
   const tri = db.triages.get(job.id); const booking = [...db.bookings.values()].find((b) => b.job_id === job.id && b.tradie_id === tradieId);
   const owner = db.users.get(job.homeowner_id); const mine = quotesForJob(job.id).find((q) => q.tradie_id === tradieId);
-  return { job_id: job.id, category: job.category, suburb: job.suburb, full_address: booking ? job.full_address ?? null : null, urgency: job.urgency, status: job.status, job_spec: tri?.result.job_spec ?? null, why_pro_needed: tri?.result.why_pro_needed ?? null, required_licence_class: tri?.result.required_licence_class ?? null, photos: job.photos, created_at: job.created_at, quote_count: quotesForJob(job.id).filter((q) => q.status !== "declined").length, quote_kind: job.quote_kind ?? null, assigned_to_me: job.assigned_tradie_id === tradieId, poster: { suburb: job.suburb, member_since: owner?.created_at ?? null, verified: true }, my_quote: mine ? quoteView(mine) : null };
+  return { job_id: job.id, category: job.category, suburb: job.suburb, full_address: booking ? job.full_address ?? null : null, urgency: job.urgency, status: job.status, job_spec: tri?.result.job_spec ?? null, why_pro_needed: tri?.result.why_pro_needed ?? null, required_licence_class: tri?.result.required_licence_class ?? null, photos: job.photos, vision: tri?.vision ?? null, created_at: job.created_at, quote_count: quotesForJob(job.id).filter((q) => q.status !== "declined").length, quote_kind: job.quote_kind ?? null, assigned_to_me: job.assigned_tradie_id === tradieId, poster: { suburb: job.suburb, member_since: owner?.created_at ?? null, verified: true }, my_quote: mine ? quoteView(mine) : null };
 }
 function jobSummary(job: any) { const tri = db.triages.get(job.id); return { ...job, verdict: tri?.result.verdict ?? null, quote_count: quotesForJob(job.id).filter((q) => q.status !== "declined").length }; }
 
@@ -216,21 +224,29 @@ function createFirmQuote(job: any, tradieId: string, kind: string, amount: numbe
   db.quotes.set(q.id, q); db.threads.set(q.id, { id: q.id, quote_id: q.id, job_id: job.id }); return q;
 }
 function createJob(input: AnyMap) {
-  const model = classify(input.description); const triageId = uid();
+  // Photo captions are real text signal — fold them into what triage reads
+  // (mirrors triageText on the backend), so a caption describing a hazard escalates.
+  const captions: string[] = (input.captions ?? []).filter((c: any) => c && String(c).trim());
+  const text = [input.description, ...captions].filter((x) => x && String(x).trim()).join(". ");
+  const model = classify(text); const triageId = uid();
   const { result, overrides, model_verdict } = gate(triageId, model);
   const at = input._at ?? nowIso();
+  const photoCount = (input.photos ?? []).length;
+  // Mock can't see pixels → "preview" (never "live"); UI labels it honestly.
+  const vision = { photos: photoCount, captions: captions.length, analyzed: false, mode: photoCount > 0 ? "preview" : "none" };
   const job: AnyMap = { id: uid(), homeowner_id: input.homeowner_id, category: input.category ?? result.category, description: input.description, photos: input.photos ?? [], suburb: input.suburb, postcode: input.postcode, state: input.state, full_address: input.full_address, urgency: result.job_spec?.urgency ?? "routine", status: "TRIAGED", created_at: at };
-  db.jobs.set(job.id, job); db.triages.set(job.id, { result, overrides, model_verdict });
+  db.jobs.set(job.id, job); db.triages.set(job.id, { result, overrides, model_verdict, vision });
   let assigned: any = null; let quote: any = null;
   if (result.verdict === "DIY_SAFE") { job.status = "DIY_RESOLVED"; }
   else {
     assigned = assignBest(job, result.required_licence_class);
     if (assigned) job.assigned_tradie_id = assigned.user_id;
-    const pb = assigned ? priceBookLookup(job.category, `${input.description} ${result.job_spec?.title ?? ""}`) : null;
+    const pb = assigned ? priceBookLookup(job.category, `${text} ${result.job_spec?.title ?? ""}`) : null;
     if (assigned && pb) { job.quote_kind = "price_book"; job.price_book_key = pb.key; quote = createFirmQuote(job, assigned.user_id, "price_book", pb.amount, pb.label, at); job.status = "QUOTED"; }
     else { job.quote_kind = "custom"; job.status = "AWAITING_QUOTE"; }
   }
-  return { job, triage: result, overrides, model_verdict, assigned, quote };
+  const ballpark = job.status === "AWAITING_QUOTE" ? qBallpark(job.category, job.urgency, result.job_spec?.symptoms?.length ?? 0) : null;
+  return { job, triage: result, overrides, model_verdict, assigned, quote, vision, ballpark };
 }
 
 // ---------- contact masking ----------
@@ -293,9 +309,9 @@ export function handleRequest(method: string, path: string, body: any, authHeade
     if (method === "GET" && seg[0] === "me" && seg.length === 1) { const u = need("homeowner", "tradie"); return ok({ id: u.sub, role: u.role, name: u.name }); }
 
     // homeowner
-    if (method === "POST" && seg[0] === "jobs" && seg.length === 1) { const u = need("homeowner"); if (!body?.description) return err(400, "description required"); const r = createJob({ ...body, homeowner_id: u.sub }); return ok({ job: jobSummary(r.job), triage: r.triage, overrides: r.overrides, model_verdict: r.model_verdict, assigned_tradie: r.assigned ? tradieSummary(r.assigned.user_id) : null, quote: r.quote ? quoteView(r.quote) : null }, 201); }
+    if (method === "POST" && seg[0] === "jobs" && seg.length === 1) { const u = need("homeowner"); if (!body?.description) return err(400, "description required"); const r = createJob({ ...body, homeowner_id: u.sub }); return ok({ job: jobSummary(r.job), triage: r.triage, overrides: r.overrides, model_verdict: r.model_verdict, assigned_tradie: r.assigned ? tradieSummary(r.assigned.user_id) : null, quote: r.quote ? quoteView(r.quote) : null, vision: r.vision, ballpark: r.ballpark }, 201); }
     if (method === "GET" && seg[0] === "jobs" && seg.length === 1) { const u = need("homeowner"); return ok([...db.jobs.values()].filter((j) => j.homeowner_id === u.sub).sort((a, b) => b.created_at.localeCompare(a.created_at)).map(jobSummary)); }
-    if (method === "GET" && seg[0] === "jobs" && seg.length === 2) { const u = need("homeowner"); const job = db.jobs.get(seg[1]!); if (!job || job.homeowner_id !== u.sub) return err(404, "Job not found"); const tri = db.triages.get(job.id); const booking = [...db.bookings.values()].find((b) => b.job_id === job.id) ?? null; return ok({ ...job, triage: tri?.result ?? null, booking, payment: booking ? paymentForBooking(booking.id) : null, variations: booking ? variationsForBooking(booking.id) : [], reviews: booking ? reviewsForBooking(booking.id) : [] }); }
+    if (method === "GET" && seg[0] === "jobs" && seg.length === 2) { const u = need("homeowner"); const job = db.jobs.get(seg[1]!); if (!job || job.homeowner_id !== u.sub) return err(404, "Job not found"); const tri = db.triages.get(job.id); const booking = [...db.bookings.values()].find((b) => b.job_id === job.id) ?? null; return ok({ ...job, triage: tri?.result ?? null, vision: tri?.vision ?? null, booking, payment: booking ? paymentForBooking(booking.id) : null, variations: booking ? variationsForBooking(booking.id) : [], reviews: booking ? reviewsForBooking(booking.id) : [] }); }
     if (method === "GET" && seg[0] === "jobs" && seg[2] === "quotes") { const u = need("homeowner"); const job = db.jobs.get(seg[1]!); if (!job || job.homeowner_id !== u.sub) return err(404, "Job not found"); return ok(quotesForJob(job.id).map(quoteView)); }
     if (method === "POST" && seg[0] === "quotes" && seg[2] === "accept") return doAccept(need("homeowner"), seg[1]!);
 

@@ -5,6 +5,7 @@
  */
 import type { Category, TriageResult, Verdict } from "../triage/schema.js";
 import type { Override } from "../triage/gate.js";
+import type { VisionSummary } from "../triage/triageService.js";
 
 export type Role = "homeowner" | "tradie" | "admin";
 export type AustralianState = "NSW" | "VIC" | "QLD" | "WA" | "SA" | "TAS" | "ACT" | "NT";
@@ -105,6 +106,8 @@ export interface Triage {
   model_verdict: Verdict;
   final_verdict: Verdict;
   overrides: Override[];
+  /** Transparent photo-analysis record, kept OUTSIDE the gated result. */
+  vision?: VisionSummary;
   created_at: string;
 }
 

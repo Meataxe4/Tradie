@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import type { CreateJobResponse } from "../types";
-import { Icon } from "../ui";
+import { Icon, money } from "../ui";
 import { TriageView } from "./TriageView";
 import { storage } from "../storage";
 
@@ -17,10 +17,38 @@ const EXAMPLES = [
 
 const STATES = ["NSW", "VIC", "QLD", "WA", "SA", "TAS", "ACT", "NT"];
 
+interface Photo { id: string; dataUrl: string; caption: string; }
+
+/** Downscale a picked image to keep the payload small (max 1000px, JPEG q0.6). */
+function downscale(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Could not read that image"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Could not load that image"));
+      img.onload = () => {
+        const max = 1000;
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("Canvas unavailable"));
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", 0.6));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export function NewJob() {
   const [step, setStep] = useState(0);
   const [description, setDescription] = useState("");
-  const [photos, setPhotos] = useState(1);
+  const [photos, setPhotos] = useState<Photo[]>([]);
   const [suburb, setSuburb] = useState("Newtown");
   const [postcode, setPostcode] = useState("2042");
   const [state, setState] = useState("NSW");
@@ -28,6 +56,7 @@ export function NewJob() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [result, setResult] = useState<CreateJobResponse | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const nav = useNavigate();
 
   useEffect(() => {
@@ -35,12 +64,34 @@ export function NewJob() {
     if (draft) { setDescription(draft); storage.remove("squiz.draft"); }
   }, []);
 
+  const addFiles = async (files: FileList | null) => {
+    if (!files) return;
+    setErr("");
+    const room = 3 - photos.length;
+    const picked = Array.from(files).slice(0, Math.max(0, room));
+    try {
+      const next: Photo[] = [];
+      for (const f of picked) {
+        const dataUrl = await downscale(f);
+        next.push({ id: `${Date.now()}-${next.length}`, dataUrl, caption: "" });
+      }
+      setPhotos((p) => [...p, ...next]);
+    } catch (e) {
+      setErr((e as Error).message);
+    }
+    if (fileRef.current) fileRef.current.value = "";
+  };
+  const setCaption = (id: string, caption: string) =>
+    setPhotos((p) => p.map((x) => (x.id === id ? { ...x, caption } : x)));
+  const removePhoto = (id: string) => setPhotos((p) => p.filter((x) => x.id !== id));
+
   const submit = async () => {
     setBusy(true); setErr("");
     try {
       const res = await api.createJob({
         description: description.trim(),
-        photos: Array.from({ length: photos }, (_, i) => `photo-${i + 1}`),
+        photos: photos.map((p) => p.dataUrl),
+        captions: photos.map((p) => p.caption),
         suburb, postcode, state, full_address: address,
       });
       setResult(res);
@@ -68,10 +119,33 @@ export function NewJob() {
         <p className="eyebrow">Your concierge result</p>
         <h1 className="page-title">{result.triage.job_spec?.title ?? `${result.job.category} · ${result.job.suburb}`}</h1>
         <p className="page-sub">{sub}</p>
+
+        {result.vision.mode !== "none" && (
+          <div className="vision-badge">
+            <span className="vb-ico">{Icon.camera}</span>
+            <div>
+              <b>{result.vision.photos} photo{result.vision.photos === 1 ? "" : "s"} {result.vision.mode === "live" ? "reviewed by our AI" : "attached"}</b>
+              <span>
+                {result.vision.mode === "live"
+                  ? "Our AI looked at your photos to help spot hazards — a photo can never make a job look safer than it is."
+                  : `In this preview, triage reads your description${result.vision.captions ? " and photo notes" : ""}; live, our AI also analyses the photos themselves.`}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {result.ballpark && (
+          <div className="ballpark">
+            <span className="bp-label">Typical range for this kind of job</span>
+            <span className="bp-range">{money(result.ballpark.low)} – {money(result.ballpark.high)}</span>
+            <span className="bp-note">A guide only — your assigned trade sends one firm price, and payment's held until the job's done.</span>
+          </div>
+        )}
+
         <TriageView triage={result.triage} overrides={result.overrides} modelVerdict={result.model_verdict} />
         <div className="row wrap" style={{ marginTop: 18 }}>
           {isPro && <button className="btn" onClick={() => nav(`/jobs/${result.job.id}`)}>{result.quote ? "View your quote →" : "View job →"}</button>}
-          <button className="btn ghost" onClick={() => { setResult(null); setDescription(""); setStep(0); }}>Post another problem</button>
+          <button className="btn ghost" onClick={() => { setResult(null); setDescription(""); setPhotos([]); setStep(0); }}>Post another problem</button>
         </div>
       </div>
     );
@@ -90,7 +164,7 @@ export function NewJob() {
       {step === 0 && (
         <div>
           <h1 className="page-title">What's the problem?</h1>
-          <p className="page-sub">Describe it like you'd tell a mate. Add a photo if you can — it helps tradies quote accurately.</p>
+          <p className="page-sub">Describe it like you'd tell a mate. Add a photo if you can — our AI reviews it to route the job safely.</p>
           <div className="card">
             <label className="field" style={{ marginBottom: 12 }}>
               <span className="lbl">Describe the problem</span>
@@ -102,15 +176,36 @@ export function NewJob() {
             </div>
           </div>
           <div className="card">
-            <label className="field" style={{ marginBottom: 0 }}>
-              <span className="lbl" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 13, height: 13, display: "inline-flex" }}>{Icon.camera}</span> Photos attached
-              </span>
-              <select value={photos} onChange={(e) => setPhotos(Number(e.target.value))}>
-                {[0, 1, 2, 3].map((n) => <option key={n} value={n}>{n} photo{n === 1 ? "" : "s"}</option>)}
-              </select>
-            </label>
+            <span className="lbl" style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+              <span style={{ width: 13, height: 13, display: "inline-flex" }}>{Icon.camera}</span> Photos (optional, up to 3)
+            </span>
+            {photos.length > 0 && (
+              <div className="photo-grid">
+                {photos.map((p) => (
+                  <div className="photo-item" key={p.id}>
+                    <div className="photo-thumb" style={{ backgroundImage: `url(${p.dataUrl})` }}>
+                      <button type="button" className="photo-x" onClick={() => removePhoto(p.id)} aria-label="Remove photo">×</button>
+                    </div>
+                    <input className="photo-cap" value={p.caption} onChange={(e) => setCaption(p.id, e.target.value)}
+                      placeholder="What does this show?" />
+                  </div>
+                ))}
+              </div>
+            )}
+            {photos.length < 3 && (
+              <>
+                <input ref={fileRef} type="file" accept="image/*" multiple capture="environment"
+                  style={{ display: "none" }} onChange={(e) => addFiles(e.target.files)} />
+                <button type="button" className="btn ghost sm" onClick={() => fileRef.current?.click()}>
+                  <span style={{ width: 13, height: 13, display: "inline-flex", marginRight: 4 }}>{Icon.camera}</span> Add photo
+                </button>
+              </>
+            )}
+            <p style={{ fontSize: 12, color: "var(--muted)", margin: "10px 0 0" }}>
+              A quick note on each photo helps us route it right — and our AI reads the image itself to spot hazards.
+            </p>
           </div>
+          {err && <p className="err">{err}</p>}
           <button className="btn" disabled={!canNext} onClick={() => setStep(1)}>Continue →</button>
         </div>
       )}

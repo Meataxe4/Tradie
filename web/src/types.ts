@@ -110,10 +110,18 @@ export interface JobDetail extends JobSummary {
   photos: string[];
   full_address?: string;
   triage: TriageResult | null;
+  vision?: VisionSummary | null;
   booking: Booking | null;
   payment: Payment | null;
   variations: Variation[];
   reviews: Review[];
+}
+
+export interface VisionSummary {
+  photos: number;
+  captions: number;
+  analyzed: boolean;
+  mode: "live" | "preview" | "none";
 }
 
 export interface CreateJobResponse {
@@ -123,6 +131,8 @@ export interface CreateJobResponse {
   model_verdict: Verdict;
   assigned_tradie: TradieSummary | null;
   quote: Quote | null;
+  vision: VisionSummary;
+  ballpark: { low: number; high: number } | null;
 }
 
 export interface TradieSummary {
@@ -211,6 +221,7 @@ export interface Lead {
   why_pro_needed: string | null;
   required_licence_class: string | null;
   photos: string[];
+  vision?: VisionSummary | null;
   created_at: string;
   quote_count: number;
   quote_kind: "price_book" | "custom" | null;

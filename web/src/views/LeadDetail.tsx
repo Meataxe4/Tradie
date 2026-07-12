@@ -51,6 +51,19 @@ export function LeadDetail() {
           ) : null}
           {lead.why_pro_needed && (<><dt>Why licensed</dt><dd>{lead.why_pro_needed}</dd></>)}
         </dl>
+        {lead.photos.filter((p) => p.startsWith("data:")).length > 0 && (
+          <div style={{ marginTop: 14 }}>
+            <span className="lbl" style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+              <span style={{ width: 13, height: 13, display: "inline-flex" }}>{Icon.camera}</span>
+              Photos from the customer{lead.vision?.mode === "live" ? " · AI-reviewed" : ""}
+            </span>
+            <div className="lead-photos">
+              {lead.photos.filter((p) => p.startsWith("data:")).map((src, i) => (
+                <a key={i} href={src} target="_blank" rel="noreferrer" className="lead-photo" style={{ backgroundImage: `url(${src})` }} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {lead.my_quote ? (

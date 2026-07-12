@@ -19,9 +19,26 @@ export interface TriageServiceDeps {
   clock?: Clock;
 }
 
+/**
+ * A transparent record of what happened with any attached photos. It rides
+ * ALONGSIDE the gated triage result (never inside it), so the safety gate is
+ * completely unaffected by vision.
+ *   - mode "live":    real photos were analysed by a vision-capable model
+ *   - mode "preview": photos were attached but only their captions were read
+ *                     (offline mock) — the UI says so, never implying vision
+ *   - mode "none":    no photos
+ */
+export interface VisionSummary {
+  photos: number;
+  captions: number;
+  analyzed: boolean;
+  mode: "live" | "preview" | "none";
+}
+
 export interface TriageOutcome {
   gate: GateResult;
   failedClosed: boolean;
+  vision: VisionSummary;
 }
 
 export class TriageService {
@@ -33,8 +50,17 @@ export class TriageService {
     this.clock = deps.clock ?? systemClock;
   }
 
+  private visionSummary(input: TriageInput): VisionSummary {
+    const photos = input.images?.length ?? input.photoCount ?? 0;
+    const captions = (input.captions ?? []).filter((c) => c && c.trim()).length;
+    const analyzed = (input.images?.length ?? 0) > 0 && this.llm.supportsVision === true;
+    const mode: VisionSummary["mode"] = photos > 0 ? (analyzed ? "live" : "preview") : "none";
+    return { photos, captions, analyzed, mode };
+  }
+
   async triage(input: TriageInput): Promise<TriageOutcome> {
     const triageId = uuidv4();
+    const vision = this.visionSummary(input);
     let model: ModelTriage;
     try {
       model = await this.llm.classify(input);
@@ -54,11 +80,12 @@ export class TriageService {
           ],
         },
         failedClosed: true,
+        vision,
       };
     }
 
     const gate = runGate(triageId, model);
-    return { gate, failedClosed: false };
+    return { gate, failedClosed: false, vision };
   }
 
   private failClosedResult(

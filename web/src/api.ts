@@ -104,6 +104,7 @@ export const api = {
   createJob: (input: {
     description: string;
     photos: string[];
+    captions?: string[];
     suburb: string;
     postcode: string;
     state: string;

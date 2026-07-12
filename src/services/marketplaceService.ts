@@ -17,6 +17,7 @@ import { computeFee } from "../payments/fees.js";
 import { MockPaymentProvider, type PaymentProvider } from "../payments/provider.js";
 import {
   MockQuoteAssistantClient,
+  estimateBallpark,
   type QuoteAssistantClient,
   type QuoteDraft,
   type VariationDraft,
@@ -24,6 +25,8 @@ import {
   type ReplySuggestion,
   type ReviewResponseDraft,
 } from "../quoting/quoteAssistant.js";
+import type { TriageImage } from "../triage/llmClient.js";
+import type { VisionSummary } from "../triage/triageService.js";
 import type {
   AustralianState,
   Booking,
@@ -49,6 +52,10 @@ export interface CreateJobInput {
   state: AustralianState;
   full_address?: string;
   category?: Category;
+  /** Actual image bytes for vision-capable triage. */
+  images?: TriageImage[];
+  /** Homeowner's per-photo note. */
+  captions?: string[];
 }
 
 export interface CreateJobResult {
@@ -58,6 +65,10 @@ export interface CreateJobResult {
   assigned: TradieProfile | null;
   /** The instant firm quote when it's a price-book job; null for custom/DIY. */
   quote: Quote | null;
+  /** Transparent photo-analysis record (never affects the safety verdict). */
+  vision: VisionSummary;
+  /** Pre-visit price range for a custom job awaiting its firm quote; else null. */
+  ballpark: { low: number; high: number } | null;
 }
 
 export class MarketplaceService {
@@ -82,6 +93,8 @@ export class MarketplaceService {
       photoCount: input.photos.length,
       suburb: input.suburb,
       category_hint: input.category,
+      images: input.images,
+      captions: input.captions,
     });
     const result = outcome.gate.triage;
 
@@ -108,6 +121,7 @@ export class MarketplaceService {
       model_verdict: outcome.gate.model_verdict,
       final_verdict: result.verdict,
       overrides: outcome.gate.overrides,
+      vision: outcome.vision,
       created_at: now,
     };
     this.store.triages.set(triage.id, triage);
@@ -149,7 +163,13 @@ export class MarketplaceService {
       }
     }
 
-    return { job, triage, assigned, quote };
+    // A pre-visit range only makes sense while a custom quote is pending.
+    const ballpark =
+      job.status === "AWAITING_QUOTE"
+        ? estimateBallpark(job.category, job.urgency, result.job_spec?.symptoms?.length ?? 0)
+        : null;
+
+    return { job, triage, assigned, quote, vision: outcome.vision, ballpark };
   }
 
   /** Create the single firm quote for a job (price-book or custom) + its thread. */

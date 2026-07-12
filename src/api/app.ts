@@ -46,6 +46,17 @@ function param(req: Request, name: string): string {
   return value;
 }
 
+/** Parse `data:image/jpeg;base64,XXXX` photo refs into vision image blocks. */
+function parseImages(photos: unknown): Array<{ media_type: string; data: string }> {
+  if (!Array.isArray(photos)) return [];
+  const out: Array<{ media_type: string; data: string }> = [];
+  for (const p of photos) {
+    const m = typeof p === "string" && p.match(/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i);
+    if (m) out.push({ media_type: m[1]!, data: m[2]! });
+  }
+  return out;
+}
+
 export function createApp(deps: AppDeps) {
   const { store } = deps;
   const clock = deps.clock ?? (() => new Date().toISOString());
@@ -159,15 +170,18 @@ export function createApp(deps: AppDeps) {
     if (!b.description || !b.suburb || !b.postcode || !b.state) {
       throw new HttpError(400, "description, suburb, postcode and state are required");
     }
+    const photos = Array.isArray(b.photos) ? b.photos : [];
     const result = await market.createJob({
       homeowner_id: user.id,
       description: String(b.description),
-      photos: Array.isArray(b.photos) ? b.photos : [],
+      photos,
       suburb: String(b.suburb),
       postcode: String(b.postcode),
       state: b.state,
       full_address: b.full_address,
       category: b.category,
+      images: parseImages(photos),
+      captions: Array.isArray(b.captions) ? b.captions.map(String) : undefined,
     });
     res.status(201).json({
       job: result.job,
@@ -176,6 +190,8 @@ export function createApp(deps: AppDeps) {
       model_verdict: result.triage.model_verdict,
       assigned_tradie: result.assigned ? tradieSummary(store, result.assigned.user_id) : null,
       quote: result.quote ? quoteView(result.quote, store) : null,
+      vision: result.vision,
+      ballpark: result.ballpark,
     });
   }));
 

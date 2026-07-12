@@ -58,6 +58,7 @@ export function leadView(store: MemoryStore, job: Job, tradieId: string) {
     why_pro_needed: triage?.result.why_pro_needed ?? null,
     required_licence_class: triage?.result.required_licence_class ?? null,
     photos: job.photos,
+    vision: triage?.vision ?? null,
     created_at: job.created_at,
     quote_count: quoteCount,
     quote_kind: job.quote_kind ?? null,
@@ -91,5 +92,6 @@ export function homeownerJobView(job: Job, triage: Triage | undefined) {
   return {
     ...job,
     triage: triage?.result ?? null,
+    vision: triage?.vision ?? null,
   };
 }

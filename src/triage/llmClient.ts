@@ -15,16 +15,42 @@ import {
 } from "./schema.js";
 import { GENERAL_DISCLAIMER, DIY_DISCLAIMER } from "./systemPrompt.js";
 
+/** A photo attached to a job, ready for a multimodal model (base64, no prefix). */
+export interface TriageImage {
+  media_type: string; // e.g. "image/jpeg"
+  data: string; // base64-encoded bytes
+}
+
 export interface TriageInput {
   description: string;
   photoCount: number;
   suburb?: string;
   category_hint?: string;
+  /** Actual image bytes for vision-capable clients. */
+  images?: TriageImage[];
+  /** Homeowner's short note per photo ("what does this show?"). Always analysed. */
+  captions?: string[];
 }
 
 export interface TriageLlmClient {
+  /** True only when this client can actually see attached photos. */
+  readonly supportsVision?: boolean;
   /** Return the raw model triage (pre-gate, without triage_id). */
   classify(input: TriageInput): Promise<ModelTriage>;
+}
+
+/**
+ * Combine the description with any photo captions into the text the classifier
+ * reasons over. Captions are real, homeowner-supplied signal (e.g. "burning
+ * smell near this outlet"), so they must be able to ESCALATE risk just like the
+ * description — the gate then enforces the ceiling. This is how the offline mock
+ * stays honestly "photo-aware": it reads what you tell it about the photo, while
+ * a vision-capable client additionally sees the pixels.
+ */
+export function triageText(input: TriageInput): string {
+  return [input.description, ...(input.captions ?? [])]
+    .filter((s) => s && s.trim())
+    .join(". ");
 }
 
 /**
@@ -32,14 +58,19 @@ export interface TriageLlmClient {
  * NOT enforce the safety policy itself in a couple of cases (e.g. it will
  * cheerfully return DIY guidance for a regulated job when the description is
  * ambiguous) so that gate tests can prove the gate catches model slips.
+ *
+ * It cannot see pixels, so it is NOT vision-capable — but it does read photo
+ * captions (see triageText), so a caption describing a hazard still escalates.
  */
 export class MockTriageClient implements TriageLlmClient {
+  readonly supportsVision = false;
+
   async classify(input: TriageInput): Promise<ModelTriage> {
     return modelTriageSchema.parse(this.build(input));
   }
 
   private build(input: TriageInput): ModelTriage {
-    const t = input.description.toLowerCase();
+    const t = triageText(input).toLowerCase();
     const has = (...words: string[]) => words.some((w) => t.includes(w));
 
     // --- EMERGENCY: gas smell ---

@@ -151,6 +151,26 @@ const round500 = (cents: number) => Math.round(cents / 500) * 500;
 const money = (cents: number) => `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
 
 /**
+ * A pre-visit ballpark RANGE (not a quote) shown to the homeowner while their
+ * assigned trade prepares a firm price — sets expectations without committing.
+ * Built from the same metro rates; deliberately wide (−15% / +30%).
+ */
+export function estimateBallpark(
+  category: Category,
+  urgency: "emergency" | "urgent" | "routine",
+  symptomCount = 0,
+): { low: number; high: number } {
+  const rate = RATES[category] ?? RATES.other;
+  let hours = 1.5;
+  if (symptomCount >= 2) hours += 0.5;
+  if (urgency === "emergency") hours += 0.5;
+  else if (urgency === "urgent") hours += 0.25;
+  const materials = Math.max(2000, round500(Math.round(rate.hourly * hours * 0.15)));
+  const point = rate.callout + Math.round(rate.hourly * hours) + materials;
+  return { low: round500(Math.round(point * 0.85)), high: round500(Math.round(point * 1.3)) };
+}
+
+/**
  * Builds a sensible firm draft from the job spec and price-book anchor. The
  * output is deterministic for a given input so tests and the live demo behave
  * predictably — the real Claude client returns the same shape.
