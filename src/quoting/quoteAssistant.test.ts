@@ -148,23 +148,101 @@ describe("MarketplaceService.draftQuote", () => {
   });
 
   it("masks any contact detail a model might slip into the draft (§9)", async () => {
-    const leaky: QuoteAssistantClient = {
-      async draft(): Promise<QuoteDraft> {
-        return {
-          suggested_amount: 20000,
-          line_items: [{ label: "Labour", amount: 20000 }],
-          scope_of_work: "Repair the oven. Email me at sam@example.com to arrange.",
-          customer_message: "Call me on 0400 123 456 to book it in.",
-          assumptions: [],
-          source: "assistant",
-        };
-      },
-    };
+    // Start from the mock and override only draft() with a leaky response.
+    const leaky = new MockQuoteAssistantClient();
+    leaky.draft = async (): Promise<QuoteDraft> => ({
+      suggested_amount: 20000,
+      line_items: [{ label: "Labour", amount: 20000 }],
+      scope_of_work: "Repair the oven. Email me at sam@example.com to arrange.",
+      customer_message: "Call me on 0400 123 456 to book it in.",
+      assumptions: [],
+      source: "assistant",
+    });
     const { market } = build(leaky);
     const created = await customJob(market);
     const draft = await market.draftQuote({ job_id: created.job.id, tradie_id: "spark-1" });
     expect(CONTACT.test(draft.customer_message)).toBe(false);
     expect(CONTACT.test(draft.scope_of_work)).toBe(false);
     expect(draft.customer_message).toContain("[redacted]");
+  });
+});
+
+/** Drive a job all the way to a completed booking with a homeowner review. */
+async function completedWithReview(market: MarketplaceService) {
+  const created = await customJob(market);
+  const quote = market.submitFirmQuote({ job_id: created.job.id, tradie_id: "spark-1", amount: 20000, inclusions: "Repair" });
+  const { booking } = market.acceptQuote(quote.id);
+  market.completeBooking(booking.id);
+  const review = market.submitReview({
+    booking_id: booking.id,
+    rater_role: "homeowner",
+    rater_id: "home-1",
+    overall: 5,
+    dimensions: { quality: 5 },
+    text: "Fantastic work, very tidy.",
+  });
+  return { booking, review };
+}
+
+describe("Sorted By Copilot — the other AI aids", () => {
+  it("#1 drafts a fair, rounded variation and masks contact detail", async () => {
+    const { market } = build();
+    const created = await customJob(market);
+    const q = market.submitFirmQuote({ job_id: created.job.id, tradie_id: "spark-1", amount: 20000, inclusions: "Repair" });
+    const { booking } = market.acceptQuote(q.id);
+    const draft = await market.draftVariation({
+      booking_id: booking.id,
+      tradie_id: "spark-1",
+      found_note: "The isolator switch also needs replacing — email me at x@y.com",
+    });
+    expect(draft.amount).toBeGreaterThan(0);
+    expect(draft.amount % 500).toBe(0);
+    expect(CONTACT.test(draft.customer_message)).toBe(false);
+    expect(CONTACT.test(draft.reason)).toBe(false);
+  });
+
+  it("#1 refuses to draft a variation on a booking that isn't the trade's", async () => {
+    const { market } = build();
+    const created = await customJob(market);
+    const q = market.submitFirmQuote({ job_id: created.job.id, tradie_id: "spark-1", amount: 20000, inclusions: "Repair" });
+    const { booking } = market.acceptQuote(q.id);
+    await expect(
+      market.draftVariation({ booking_id: booking.id, tradie_id: "plumb-1", found_note: "x" }),
+    ).rejects.toThrow(/isn't yours/);
+  });
+
+  it("#2 explains a quote and refuses if it isn't the homeowner's job", async () => {
+    const { market } = build();
+    const created = await customJob(market);
+    const q = market.submitFirmQuote({ job_id: created.job.id, tradie_id: "spark-1", amount: 20000, inclusions: "Repair" });
+    const out = await market.explainQuote({ quote_id: q.id, homeowner_id: "home-1" });
+    expect(out.what_youre_paying_for.length).toBeGreaterThan(0);
+    expect(out.plain_summary).toMatch(/\$200/);
+    await expect(market.explainQuote({ quote_id: q.id, homeowner_id: "nobody" })).rejects.toThrow(/Not your job/);
+  });
+
+  it("#3 suggests an on-platform reply", async () => {
+    const { market } = build();
+    const created = await customJob(market);
+    const q = market.submitFirmQuote({ job_id: created.job.id, tradie_id: "spark-1", amount: 20000, inclusions: "Repair" });
+    market.postMessage({ thread_id: q.id, sender_role: "homeowner", body: "When can you come out?" });
+    const out = await market.suggestReply({ thread_id: q.id, role: "tradie" });
+    expect(out.suggestion.length).toBeGreaterThan(0);
+    expect(CONTACT.test(out.suggestion)).toBe(false);
+  });
+
+  it("#4 drafts, persists and guards a review response", async () => {
+    const { market } = build();
+    const { review } = await completedWithReview(market);
+    const draft = await market.draftReviewResponse({ review_id: review.id, tradie_id: "spark-1" });
+    expect(draft.response.length).toBeGreaterThan(0);
+
+    const responded = market.respondToReview({ review_id: review.id, tradie_id: "spark-1", response: draft.response });
+    expect(responded.response).toBe(draft.response);
+    expect(responded.responded_at).toBeTruthy();
+
+    // One response only, and only the rated trade may respond.
+    expect(() => market.respondToReview({ review_id: review.id, tradie_id: "spark-1", response: "again" })).toThrow(/already responded/);
+    await expect(market.draftReviewResponse({ review_id: review.id, tradie_id: "plumb-1" })).rejects.toThrow(/written about you/);
   });
 });

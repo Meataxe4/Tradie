@@ -19,6 +19,10 @@ import {
   MockQuoteAssistantClient,
   type QuoteAssistantClient,
   type QuoteDraft,
+  type VariationDraft,
+  type QuoteExplanation,
+  type ReplySuggestion,
+  type ReviewResponseDraft,
 } from "../quoting/quoteAssistant.js";
 import type {
   AustralianState,
@@ -259,6 +263,88 @@ export class MarketplaceService {
       customer_message: maskContactInfo(draft.customer_message).body,
       scope_of_work: maskContactInfo(draft.scope_of_work).body,
     };
+  }
+
+  /** #1 AI-draft a variation (extra work) for the trade to send for approval. */
+  async draftVariation(args: { booking_id: string; tradie_id: string; found_note: string }): Promise<VariationDraft> {
+    const booking = this.mustBooking(args.booking_id);
+    if (booking.tradie_id !== args.tradie_id) throw new Error("This booking isn't yours");
+    if (booking.status !== "scheduled") throw new Error("Variations can only be raised on a scheduled job");
+    const job = this.mustJob(booking.job_id);
+    const draft = await this.quoteAssistant.draftVariation({
+      category: job.category,
+      urgency: job.urgency,
+      found_note: args.found_note,
+    });
+    return {
+      ...draft,
+      reason: maskContactInfo(draft.reason).body,
+      customer_message: maskContactInfo(draft.customer_message).body,
+    };
+  }
+
+  /** #2 Explain a firm quote to the homeowner in plain language. */
+  async explainQuote(args: { quote_id: string; homeowner_id: string }): Promise<QuoteExplanation> {
+    const quote = this.mustQuote(args.quote_id);
+    const job = this.mustJob(quote.job_id);
+    if (job.homeowner_id !== args.homeowner_id) throw new Error("Not your job");
+    const triageId = this.store.triageByJob.get(job.id);
+    const triage = triageId ? this.store.triages.get(triageId) : undefined;
+    return this.quoteAssistant.explainQuote({
+      amount: quote.amount,
+      inclusions: quote.inclusions,
+      kind: quote.kind,
+      category: job.category,
+      job_title: triage?.result.job_spec?.title ?? `${job.category} job`,
+    });
+  }
+
+  /** #3 Suggest a professional, on-platform reply in a message thread. */
+  async suggestReply(args: { thread_id: string; role: "homeowner" | "tradie" }): Promise<ReplySuggestion> {
+    const thread = this.store.threads.get(args.thread_id);
+    if (!thread) throw new Error("Thread not found");
+    const job = this.store.jobs.get(thread.job_id);
+    const triageId = job ? this.store.triageByJob.get(job.id) : undefined;
+    const triage = triageId ? this.store.triages.get(triageId) : undefined;
+    const recent = this.store
+      .messagesForThread(args.thread_id)
+      .slice(-6)
+      .map((m) => ({ role: m.sender_role, body: m.body }));
+    const out = await this.quoteAssistant.suggestReply({
+      role: args.role,
+      job_title: triage?.result.job_spec?.title ?? "your job",
+      recent,
+    });
+    // Never suggest a way off-platform.
+    return { ...out, suggestion: maskContactInfo(out.suggestion).body };
+  }
+
+  /** #4 Draft the trade's public response to a homeowner's review. */
+  async draftReviewResponse(args: { review_id: string; tradie_id: string }): Promise<ReviewResponseDraft> {
+    const review = this.mustReview(args.review_id);
+    if (review.rater_role !== "homeowner" || review.ratee_id !== args.tradie_id) {
+      throw new Error("You can only respond to reviews written about you");
+    }
+    const tradie = this.store.tradies.get(args.tradie_id);
+    const out = await this.quoteAssistant.draftReviewResponse({
+      business_name: tradie?.business_name ?? "our team",
+      overall: review.overall,
+      text: review.text,
+    });
+    return { ...out, response: maskContactInfo(out.response).body };
+  }
+
+  /** #4 Persist the trade's public response to a review (masked, one per review). */
+  respondToReview(args: { review_id: string; tradie_id: string; response: string }): Review {
+    const review = this.mustReview(args.review_id);
+    if (review.rater_role !== "homeowner" || review.ratee_id !== args.tradie_id) {
+      throw new Error("You can only respond to reviews written about you");
+    }
+    if (review.response) throw new Error("You've already responded to this review");
+    review.response = maskContactInfo(args.response).body;
+    review.responded_at = this.clock();
+    this.store.reviews.set(review.id, review);
+    return review;
   }
 
   /**
@@ -520,5 +606,10 @@ export class MarketplaceService {
     const b = this.store.bookings.get(id);
     if (!b) throw new Error(`Booking ${id} not found`);
     return b;
+  }
+  private mustReview(id: string): Review {
+    const r = this.store.reviews.get(id);
+    if (!r) throw new Error(`Review ${id} not found`);
+    return r;
   }
 }

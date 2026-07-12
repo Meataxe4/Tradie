@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
-import type { Lead, WonLead } from "../types";
+import type { Lead, Review, WonLead } from "../types";
 import { CATEGORY_META, Icon, Spinner, money } from "../ui";
 import { timeAgo } from "../parts";
 import { ReviewForm } from "./ReviewForm";
@@ -175,6 +175,8 @@ function WonCard({ won, onChange }: { won: WonLead; onChange: () => void }) {
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
   const [err, setErr] = useState("");
+  const [drafting, setDrafting] = useState(false);
+  const [varMsg, setVarMsg] = useState("");
   const p = won.payment;
   const scheduled = won.booking.status === "scheduled";
 
@@ -182,11 +184,20 @@ function WonCard({ won, onChange }: { won: WonLead; onChange: () => void }) {
     setBusy(true); setErr("");
     try { await fn(); onChange(); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   };
+  const draftVar = async () => {
+    setDrafting(true); setErr("");
+    try {
+      const d = await api.draftVariation(won.booking.id, reason.trim());
+      setAmount(String(d.amount / 100));
+      setReason(d.reason);
+      setVarMsg(d.customer_message);
+    } catch (e) { setErr((e as Error).message); } finally { setDrafting(false); }
+  };
   const proposeVar = () => {
     const cents = Math.round(Number(amount) * 100);
     if (!cents || cents <= 0) { setErr("Enter a valid variation amount."); return; }
     act(() => api.proposeVariation(won.booking.id, cents, reason.trim() || "Additional work"))
-      .then(() => { setAmount(""); setReason(""); setShowVar(false); });
+      .then(() => { setAmount(""); setReason(""); setVarMsg(""); setShowVar(false); });
   };
 
   return (
@@ -223,12 +234,19 @@ function WonCard({ won, onChange }: { won: WonLead; onChange: () => void }) {
       {showVar && scheduled && (
         <div className="card" style={{ marginTop: 12, marginBottom: 0 }}>
           <p className="notice" style={{ marginBottom: 12 }}>The customer must approve extra work before it counts — it's added to the held payment.</p>
-          <div className="grid two">
-            <label className="field" style={{ marginBottom: 0 }}><span className="lbl">Extra amount (AUD)</span>
-              <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /></label>
-            <label className="field" style={{ marginBottom: 0 }}><span className="lbl">Reason</span>
-              <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. extra cabling" /></label>
+          <label className="field"><span className="lbl">What did you find on site?</span>
+            <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. the isolator switch also needs replacing" /></label>
+          <div className="ai-draft-cta" style={{ marginBottom: 12 }}>
+            <div><b>Price it with AI</b><span>Drafts a fair amount and a note for the customer from what you found.</span></div>
+            <button className="btn ghost sm" type="button" disabled={drafting} onClick={draftVar}>{drafting ? "Drafting…" : "✨ Draft with AI"}</button>
           </div>
+          <label className="field" style={{ marginBottom: varMsg ? 12 : 0 }}><span className="lbl">Extra amount (AUD)</span>
+            <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /></label>
+          {varMsg && (
+            <div className="ai-msg" style={{ borderTop: "none", paddingTop: 0, marginTop: 0, marginBottom: 4 }}>
+              <span className="lbl">Suggested note to the customer</span><p>{varMsg}</p>
+            </div>
+          )}
           <button className="btn sm" style={{ marginTop: 12 }} disabled={busy} onClick={proposeVar}>Send variation</button>
         </div>
       )}
@@ -238,6 +256,57 @@ function WonCard({ won, onChange }: { won: WonLead; onChange: () => void }) {
       )}
       {won.reviews.some((r) => r.rater_role === "tradie") && (
         <p style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 8 }}>You rated this customer {won.reviews.find((r) => r.rater_role === "tradie")!.overall}★.</p>
+      )}
+
+      {won.reviews.filter((r) => r.rater_role === "homeowner").map((r) => (
+        <ReviewResponse key={r.id} review={r} onChange={onChange} />
+      ))}
+      {err && <p className="err">{err}</p>}
+    </div>
+  );
+}
+
+function ReviewResponse({ review, onChange }: { review: Review; onChange: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [drafting, setDrafting] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const draft = async () => {
+    setDrafting(true); setErr("");
+    try { const d = await api.draftReviewResponse(review.id); setText(d.response); }
+    catch (e) { setErr((e as Error).message); } finally { setDrafting(false); }
+  };
+  const post = async () => {
+    if (!text.trim()) { setErr("Write a response first."); return; }
+    setBusy(true); setErr("");
+    try { await api.respondToReview(review.id, text.trim()); onChange(); }
+    catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="review-block" style={{ marginTop: 12 }}>
+      <div className="rb-head">
+        <b>Customer left you {review.overall}★</b>
+      </div>
+      {review.text && <p className="rb-text">"{review.text}"</p>}
+      {review.response ? (
+        <div className="rb-response"><span className="lbl">Your response</span><p>{review.response}</p></div>
+      ) : open ? (
+        <div style={{ marginTop: 8 }}>
+          <div className="ai-draft-cta" style={{ marginBottom: 10 }}>
+            <div><b>Reply with AI</b><span>Drafts a warm, professional response you can edit.</span></div>
+            <button className="btn ghost sm" type="button" disabled={drafting} onClick={draft}>{drafting ? "Drafting…" : "✨ Draft with AI"}</button>
+          </div>
+          <textarea value={text} onChange={(e) => setText(e.target.value)} style={{ minHeight: 70, width: "100%" }} placeholder="Thanks so much for the review…" />
+          <div className="row" style={{ marginTop: 10 }}>
+            <button className="btn sm" disabled={busy} onClick={post}>{busy ? "Posting…" : "Post response"}</button>
+            <button className="btn ghost sm" onClick={() => setOpen(false)}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <button className="btn ghost sm" style={{ marginTop: 8 }} onClick={() => setOpen(true)}>Respond to review</button>
       )}
       {err && <p className="err">{err}</p>}
     </div>

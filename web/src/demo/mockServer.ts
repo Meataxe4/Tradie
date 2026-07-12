@@ -134,6 +134,41 @@ function draftQuote(job: any): AnyMap {
   return { suggested_amount: total, line_items: items, scope_of_work: mask(scope).body, customer_message: mask(customer_message).body, assumptions, source: "assistant" };
 }
 
+function draftVariationMock(job: any, foundNote: string): AnyMap {
+  const rate = Q_RATES[job.category] ?? Q_RATES.other!;
+  let hours = 1; if (job.urgency === "emergency") hours += 0.5;
+  const labour = Math.round(rate.hourly * hours); const materials = Math.max(1500, q500(Math.round(labour * 0.2)));
+  const amount = Math.max(q500(labour + materials), 500);
+  const note = (foundNote || "").trim() || "additional work found on site";
+  const reason = note.charAt(0).toUpperCase() + note.slice(1);
+  const customer_message = `While on site I found extra work needed: ${note.toLowerCase()}. To do it properly I'd need an additional ${qMoney(amount)} (GST incl.), which covers the extra labour and materials. It's added to the held payment only if you approve — nothing proceeds until you say yes.`;
+  return { amount, reason: mask(reason).body, customer_message: mask(customer_message).body, source: "assistant" };
+}
+function explainQuoteMock(q: any, job: any): AnyMap {
+  const regulated = Q_REGULATED.has(job.category);
+  const tri = db.triages.get(job.id); const title = tri?.result.job_spec?.title ?? `${job.category} job`;
+  const plain_summary = `This is a single, firm price of ${qMoney(q.amount)} (GST included) to ${title.toLowerCase()}. ${q.kind === "price_book" ? "It's a standard Sorted By fixed price for this job" : "Your assigned trade set this price for your specific job"} — there's no bidding and no surprise add-ons.`;
+  const what_youre_paying_for = [q.inclusions || "Attendance, diagnosis and the repair", "A vetted, licensed local trade — not the cheapest bidder", regulated ? "Testing and a compliance certificate for regulated work" : "Testing to confirm the fix works", "Payment held securely and only released once you're happy"];
+  const questions_to_ask = ["Roughly how long will the job take?", "Is there anything that could change the price on the day?", regulated ? "Will I get the compliance certificate on completion?" : "Is the work guaranteed?"];
+  return { plain_summary, what_youre_paying_for, questions_to_ask, source: "assistant" };
+}
+function suggestReplyMock(threadId: string, role: string, jobTitle: string): AnyMap {
+  const msgs = [...db.messages.values()].filter((m) => m.thread_id === threadId).sort((a, b) => a.created_at.localeCompare(b.created_at));
+  const last = [...msgs].reverse().find((m) => m.sender_role !== role); const theirs = (last?.body || "").toLowerCase();
+  const asksTime = /(when|time|day|date|available|book|schedule)/.test(theirs); const asksPrice = /(price|cost|how much|quote|\$)/.test(theirs);
+  let suggestion: string;
+  if (role === "tradie") suggestion = asksTime ? "Thanks for getting back to me. I can lock in a time through the app — what days generally suit you this week and I'll confirm the slot here?" : asksPrice ? "Happy to walk you through the quote — the price is firm and GST-inclusive, and payment stays held by Sorted By until you're happy the job's done. Anything in particular you'd like me to clarify?" : `Thanks for the message about ${jobTitle.toLowerCase()}. Happy to help — is there anything else you'd like to know before we lock it in?`;
+  else suggestion = asksTime ? "Thanks! Mornings generally work best for me this week — could you confirm a time here in the app?" : `Thanks for the update on ${jobTitle.toLowerCase()}. That sounds good — happy to go ahead. Let me know the next step.`;
+  return { suggestion: mask(suggestion).body, source: "assistant" };
+}
+function draftReviewResponseMock(review: any, biz: string): AnyMap {
+  const positive = review.overall >= 4;
+  const response = positive
+    ? `Thanks so much for the kind words and the ${review.overall}-star review — it genuinely means a lot to the ${biz} team. It was a pleasure helping out, and we're glad we could sort it. Don't hesitate to reach out through Sorted By if anything else comes up.`
+    : `Thanks for taking the time to leave your feedback. We're sorry it wasn't a 5-star experience — that's not the standard we hold ourselves to at ${biz}. We'd genuinely like to make it right; please reach out through Sorted By so we can look into it.`;
+  return { response: mask(response).body, source: "assistant" };
+}
+
 // ---------- fees + strengths ----------
 function computeFee(amount: number) { const platform_fee = Math.round((amount * 500) / 10000); return { amount, platform_fee, trade_payout: amount - platform_fee }; }
 const STRENGTH_LABELS: Record<string, string> = { quality: "Great workmanship", timeliness: "Always on time", communication: "Great communicator", tidiness: "Spotless cleanup", value: "Great value" };
@@ -269,10 +304,19 @@ export function handleRequest(method: string, path: string, body: any, authHeade
     if (method === "GET" && seg[0] === "leads" && seg.length === 2) { const u = need("tradie"); const job = db.jobs.get(seg[1]!); if (!job) return err(404, "Lead not found"); return ok(leadView(job, u.sub)); }
     if (method === "POST" && seg[0] === "jobs" && seg[2] === "quotes") return doFirmQuote(need("tradie"), seg[1]!, body);
     if (method === "POST" && seg[0] === "leads" && seg[2] === "draft-quote") { const u = need("tradie"); const job = db.jobs.get(seg[1]!); if (!job) return err(404, "Lead not found"); if (job.assigned_tradie_id !== u.sub) return err(400, "This job isn't assigned to you"); if (job.status !== "AWAITING_QUOTE") return err(400, "Job isn't awaiting a quote"); return ok(draftQuote(job)); }
+    if (method === "POST" && seg[0] === "bookings" && seg[2] === "draft-variation") { const u = need("tradie"); const b = db.bookings.get(seg[1]!); if (!b) return err(404, "Booking not found"); if (b.tradie_id !== u.sub) return err(403, "This booking isn't yours"); if (b.status !== "scheduled") return err(400, "Variations can only be raised on a scheduled job"); return ok(draftVariationMock(db.jobs.get(b.job_id), String(body?.found_note ?? ""))); }
+    if (method === "POST" && seg[0] === "quotes" && seg[2] === "explain") { const u = need("homeowner"); const q = db.quotes.get(seg[1]!); if (!q) return err(404, "Quote not found"); const job = db.jobs.get(q.job_id); if (!job || job.homeowner_id !== u.sub) return err(403, "Not your job"); return ok(explainQuoteMock(q, job)); }
+    if (method === "POST" && seg[0] === "reviews" && seg[2] === "draft-response") { const u = need("tradie"); const r = db.reviews.get(seg[1]!); if (!r) return err(404, "Review not found"); if (r.rater_role !== "homeowner" || r.ratee_id !== u.sub) return err(403, "You can only respond to reviews written about you"); const t = db.tradies.get(u.sub); return ok(draftReviewResponseMock(r, t?.business_name ?? "our team")); }
+    if (method === "POST" && seg[0] === "reviews" && seg[2] === "respond") { const u = need("tradie"); const r = db.reviews.get(seg[1]!); if (!r) return err(404, "Review not found"); if (r.rater_role !== "homeowner" || r.ratee_id !== u.sub) return err(403, "You can only respond to reviews written about you"); if (r.response) return err(400, "You've already responded to this review"); r.response = mask(String(body?.response ?? "")).body; r.responded_at = nowIso(); return ok(r, 201); }
     if (method === "GET" && seg[0] === "me" && seg[1] === "quotes") { const u = need("tradie"); return ok([...db.quotes.values()].filter((q) => q.tradie_id === u.sub).map((q) => ({ ...quoteView(q), thread_id: q.id, job: db.jobs.get(q.job_id) ? leadView(db.jobs.get(q.job_id), u.sub) : null }))); }
     if (method === "GET" && seg[0] === "me" && seg[1] === "leads" && seg[2] === "won") { const u = need("tradie"); return ok([...db.bookings.values()].filter((b) => b.tradie_id === u.sub).map((b) => ({ booking: b, thread_id: b.quote_id, job: db.jobs.get(b.job_id) ? leadView(db.jobs.get(b.job_id), u.sub) : null, payment: paymentForBooking(b.id), variations: variationsForBooking(b.id), reviews: reviewsForBooking(b.id) }))); }
 
     // shared
+    if (method === "POST" && seg[0] === "threads" && seg[2] === "suggest-reply") {
+      const u = need("homeowner", "tradie"); const thread = db.threads.get(seg[1]!); if (!thread) return err(404, "Thread not found");
+      const job = db.jobs.get(thread.job_id); const tri = job ? db.triages.get(job.id) : null;
+      return ok(suggestReplyMock(seg[1]!, u.role === "tradie" ? "tradie" : "homeowner", tri?.result.job_spec?.title ?? "your job"));
+    }
     if (seg[0] === "threads" && seg[2] === "messages") {
       const u = need("homeowner", "tradie"); if (!db.threads.get(seg[1]!)) return err(404, "Thread not found");
       if (method === "GET") return ok([...db.messages.values()].filter((m) => m.thread_id === seg[1]).sort((a, b) => a.created_at.localeCompare(b.created_at)));

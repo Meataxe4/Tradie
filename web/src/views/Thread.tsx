@@ -8,6 +8,7 @@ export function Thread({ threadId }: { threadId: string }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [err, setErr] = useState("");
+  const [suggesting, setSuggesting] = useState(false);
 
   const load = () => api.messages(threadId).then(setMessages).catch(() => {});
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [threadId]);
@@ -22,6 +23,13 @@ export function Thread({ threadId }: { threadId: string }) {
     } catch (e) {
       setErr((e as Error).message);
     }
+  };
+
+  const suggest = async () => {
+    setSuggesting(true); setErr("");
+    try { const s = await api.suggestReply(threadId); setText(s.suggestion); }
+    catch (e) { setErr((e as Error).message); }
+    finally { setSuggesting(false); }
   };
 
   return (
@@ -52,6 +60,9 @@ export function Thread({ threadId }: { threadId: string }) {
           onKeyDown={(e) => { if (e.key === "Enter") send(); }}
           placeholder="Write a message…"
         />
+        <button className="btn ghost sm" type="button" disabled={suggesting} onClick={suggest} title="Suggest a reply">
+          {suggesting ? "…" : "✨"}
+        </button>
         <button className="btn sm" onClick={send}>Send</button>
       </div>
       {err && <p className="err">{err}</p>}

@@ -12,7 +12,12 @@ import type {
   MyQuote,
   Quote,
   QuoteDraft,
+  QuoteExplanation,
   RegisterInput,
+  ReplySuggestion,
+  Review,
+  ReviewResponseDraft,
+  VariationDraft,
   WonLead,
 } from "./types";
 import { storage } from "./storage";
@@ -109,6 +114,7 @@ export const api = {
   jobQuotes: (id: string) => req<Quote[]>("GET", `/jobs/${id}/quotes`),
   acceptQuote: (id: string) =>
     req<{ quote: Quote; booking: Booking }>("POST", `/quotes/${id}/accept`),
+  explainQuote: (quoteId: string) => req<QuoteExplanation>("POST", `/quotes/${quoteId}/explain`),
 
   // tradie
   leads: () => req<Lead[]>("GET", "/leads"),
@@ -118,6 +124,12 @@ export const api = {
     input: { amount: number; inclusions: string; earliest_availability?: string },
   ) => req<{ quote_id: string; status: string; thread_id: string }>("POST", `/jobs/${jobId}/quotes`, input),
   draftQuote: (jobId: string) => req<QuoteDraft>("POST", `/leads/${jobId}/draft-quote`),
+  draftVariation: (bookingId: string, foundNote: string) =>
+    req<VariationDraft>("POST", `/bookings/${bookingId}/draft-variation`, { found_note: foundNote }),
+  draftReviewResponse: (reviewId: string) =>
+    req<ReviewResponseDraft>("POST", `/reviews/${reviewId}/draft-response`),
+  respondToReview: (reviewId: string, response: string) =>
+    req<Review>("POST", `/reviews/${reviewId}/respond`, { response }),
   myQuotes: () => req<MyQuote[]>("GET", "/me/quotes"),
   wonLeads: () => req<WonLead[]>("GET", "/me/leads/won"),
 
@@ -125,6 +137,8 @@ export const api = {
   messages: (threadId: string) => req<Message[]>("GET", `/threads/${threadId}/messages`),
   sendMessage: (threadId: string, bodyText: string) =>
     req<Message>("POST", `/threads/${threadId}/messages`, { body: bodyText }),
+  suggestReply: (threadId: string) =>
+    req<ReplySuggestion>("POST", `/threads/${threadId}/suggest-reply`),
   completeBooking: (id: string) => req<Booking>("POST", `/bookings/${id}/complete`),
   review: (bookingId: string, overall: number, dimensions: Record<string, number>, text: string) =>
     req<unknown>("POST", `/bookings/${bookingId}/review`, { overall, dimensions, text }),

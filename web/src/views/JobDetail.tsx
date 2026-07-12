@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "../api";
-import type { JobDetail as JobDetailT, Quote } from "../types";
+import type { JobDetail as JobDetailT, Quote, QuoteExplanation } from "../types";
 import { Icon, Spinner, money } from "../ui";
 import { Avatar, Stars, Stepper, TrustRow, timeAgo, memberSince } from "../parts";
 import { TriageView } from "./TriageView";
@@ -16,6 +16,8 @@ export function JobDetail() {
   const [openThread, setOpenThread] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showTriage, setShowTriage] = useState(false);
+  const [explain, setExplain] = useState<Record<string, QuoteExplanation>>({});
+  const [explaining, setExplaining] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -41,6 +43,14 @@ export function JobDetail() {
     try { await api.completeBooking(job.booking.id); await load(); }
     catch (e) { setErr((e as Error).message); }
     finally { setBusy(false); }
+  };
+
+  const explainQuote = async (qid: string) => {
+    if (explain[qid]) { setExplain((m) => { const n = { ...m }; delete n[qid]; return n; }); return; }
+    setExplaining(qid); setErr("");
+    try { const e = await api.explainQuote(qid); setExplain((m) => ({ ...m, [qid]: e })); }
+    catch (e) { setErr((e as Error).message); }
+    finally { setExplaining(""); }
   };
 
   const decideVariation = async (id: string, approve: boolean) => {
@@ -136,7 +146,24 @@ export function JobDetail() {
                     <button className="btn ghost sm" onClick={() => setOpenThread(openThread === q.quote_id ? null : q.quote_id)}>
                       {openThread === q.quote_id ? "Hide messages" : "Message"}
                     </button>
+                    <button className="btn ghost sm" disabled={explaining === q.quote_id} onClick={() => explainQuote(q.quote_id)}>
+                      {explaining === q.quote_id ? "Explaining…" : explain[q.quote_id] ? "Hide explainer" : "✨ Explain this quote"}
+                    </button>
                   </div>
+                  {explain[q.quote_id] && (
+                    <div className="ai-draft" style={{ marginTop: 14, marginBottom: 0 }}>
+                      <div className="ai-draft-head"><span className="ai-badge">✨ Plain-English explainer</span></div>
+                      <p style={{ margin: 0, fontSize: 13.5, color: "var(--ink)", lineHeight: 1.5 }}>{explain[q.quote_id]!.plain_summary}</p>
+                      <span className="lbl" style={{ display: "block", marginTop: 12 }}>What you're paying for</span>
+                      <ul className="ai-assumptions" style={{ marginTop: 4 }}>{explain[q.quote_id]!.what_youre_paying_for.map((x, i) => <li key={i}>{x}</li>)}</ul>
+                      {explain[q.quote_id]!.questions_to_ask.length > 0 && (
+                        <>
+                          <span className="lbl" style={{ display: "block", marginTop: 10 }}>Good questions to ask</span>
+                          <ul className="ai-assumptions" style={{ marginTop: 4 }}>{explain[q.quote_id]!.questions_to_ask.map((x, i) => <li key={i}>{x}</li>)}</ul>
+                        </>
+                      )}
+                    </div>
+                  )}
                   {openThread === q.quote_id && <div style={{ marginTop: 14 }}><Thread threadId={q.quote_id} /></div>}
                 </div>
               );

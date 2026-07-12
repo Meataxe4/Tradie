@@ -145,6 +145,8 @@ export interface Review {
   overall: number;
   dimensions: Record<string, number>;
   text: string;
+  response?: string;
+  responded_at?: string;
   created_at: string;
 }
 
@@ -171,6 +173,30 @@ export interface QuoteDraft {
   scope_of_work: string;
   customer_message: string;
   assumptions: string[];
+  source: "assistant" | "claude";
+}
+
+export interface VariationDraft {
+  amount: number;
+  reason: string;
+  customer_message: string;
+  source: "assistant" | "claude";
+}
+
+export interface QuoteExplanation {
+  plain_summary: string;
+  what_youre_paying_for: string[];
+  questions_to_ask: string[];
+  source: "assistant" | "claude";
+}
+
+export interface ReplySuggestion {
+  suggestion: string;
+  source: "assistant" | "claude";
+}
+
+export interface ReviewResponseDraft {
+  response: string;
   source: "assistant" | "claude";
 }
 

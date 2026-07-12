@@ -283,6 +283,51 @@ export function createApp(deps: AppDeps) {
     res.json(draft);
   }));
 
+  // POST /bookings/:id/draft-variation — #1 AI-draft a variation (extra work).
+  api.post("/bookings/:id/draft-variation", wrap(async (req, res) => {
+    const user = requireRole(req, "tradie");
+    const draft = await market.draftVariation({
+      booking_id: param(req, "id"),
+      tradie_id: user.id,
+      found_note: String(req.body?.found_note ?? ""),
+    });
+    res.json(draft);
+  }));
+
+  // POST /quotes/:id/explain — #2 plain-language explanation for the homeowner.
+  api.post("/quotes/:id/explain", wrap(async (req, res) => {
+    const user = requireRole(req, "homeowner");
+    const out = await market.explainQuote({ quote_id: param(req, "id"), homeowner_id: user.id });
+    res.json(out);
+  }));
+
+  // POST /threads/:id/suggest-reply — #3 suggest a professional in-app reply.
+  api.post("/threads/:id/suggest-reply", wrap(async (req, res) => {
+    const user = requireRole(req, "homeowner", "tradie");
+    const out = await market.suggestReply({
+      thread_id: param(req, "id"),
+      role: user.role === "tradie" ? "tradie" : "homeowner",
+    });
+    res.json(out);
+  }));
+
+  // #4 Review responses: draft, then post the trade's public reply.
+  api.post("/reviews/:id/draft-response", wrap(async (req, res) => {
+    const user = requireRole(req, "tradie");
+    const out = await market.draftReviewResponse({ review_id: param(req, "id"), tradie_id: user.id });
+    res.json(out);
+  }));
+
+  api.post("/reviews/:id/respond", wrap((req, res) => {
+    const user = requireRole(req, "tradie");
+    const review = market.respondToReview({
+      review_id: param(req, "id"),
+      tradie_id: user.id,
+      response: String(req.body?.response ?? ""),
+    });
+    res.status(201).json(review);
+  }));
+
   // GET /me/quotes — the tradie's own submitted quotes (with job + thread).
   api.get("/me/quotes", wrap((req, res) => {
     const user = requireRole(req, "tradie");

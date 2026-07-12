@@ -396,6 +396,11 @@ dl.spec dd ul { margin: 0; padding-left: 18px; }
 .ai-msg { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--hairline); }
 .ai-msg p { margin: 4px 0 0; font-size: 13.5px; color: var(--ink); line-height: 1.5; }
 .ai-note { margin: 12px 0 0; font-size: 12px; color: var(--muted); font-style: italic; }
+.review-block { padding: 12px 14px; border: 1px solid var(--hairline); border-radius: 11px; background: var(--surface-2); }
+.rb-head b { font-size: 13.5px; color: var(--ink); }
+.rb-text { margin: 6px 0 0; font-size: 13.5px; color: var(--ink); font-style: italic; }
+.rb-response { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--hairline); }
+.rb-response p { margin: 4px 0 0; font-size: 13px; color: var(--ink); line-height: 1.5; }
 
 /* structured review inputs (§4) */
 .star-input { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0; }

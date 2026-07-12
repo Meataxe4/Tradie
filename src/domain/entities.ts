@@ -170,6 +170,9 @@ export interface Review {
   overall: number; // 1..5
   dimensions: Record<string, number>; // each 1..5
   text: string;
+  /** Public reply from the rated party (e.g. the trade replying to a review). */
+  response?: string;
+  responded_at?: string;
   created_at: string;
 }
 
