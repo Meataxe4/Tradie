@@ -33,7 +33,7 @@ export function Login() {
 
   const go = (result: AuthResult) => {
     signIn(result);
-    nav(result.user.role === "tradie" ? "/leads" : "/new");
+    nav(result.user.role === "tradie" ? "/leads" : result.user.role === "admin" ? "/admin" : "/new");
   };
 
   return (

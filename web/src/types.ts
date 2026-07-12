@@ -263,3 +263,29 @@ export interface MyQuote extends Quote {
   thread_id: string;
   job: Lead | null;
 }
+
+// ---- admin ops dashboard ----
+export interface AdminOverview {
+  stats: {
+    gmv: number;
+    revenue: number;
+    held: number;
+    jobs_posted: number;
+    diy_resolved: number;
+    declined: number;
+    acceptance_rate: number | null;
+    tradies_total: number;
+    tradies_verified: number;
+  };
+  funnel: Array<{ key: string; label: string; count: number }>;
+  overrides: Array<{ triage_id: string; job_id: string; at: string; overrides: Override[] }>;
+  leakage: Array<{ thread_id: string; sender_role: string; at: string }>;
+  verification: Array<{
+    user_id: string;
+    business_name: string;
+    abn: string;
+    trades: string[];
+    verified_status: string;
+    licences: Array<{ class: string; number: string; state: string; verified_status: string }>;
+  }>;
+}

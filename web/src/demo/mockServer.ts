@@ -23,6 +23,7 @@ const db = {
   reviews: new Map<string, any>(), payments: new Map<string, any>(), variations: new Map<string, any>(),
   passwords: new Map<string, string>(), emailToId: new Map<string, string>(), names: new Map<string, string>(),
   demoIds: new Set<string>(),
+  overrideLog: [] as any[], leakageLog: [] as any[],
 };
 
 // ---------- triage (mirrors src/triage) ----------
@@ -236,6 +237,7 @@ function createJob(input: AnyMap) {
   const vision = { photos: photoCount, captions: captions.length, analyzed: false, mode: photoCount > 0 ? "preview" : "none" };
   const job: AnyMap = { id: uid(), homeowner_id: input.homeowner_id, category: input.category ?? result.category, description: input.description, photos: input.photos ?? [], suburb: input.suburb, postcode: input.postcode, state: input.state, full_address: input.full_address, urgency: result.job_spec?.urgency ?? "routine", status: "TRIAGED", created_at: at };
   db.jobs.set(job.id, job); db.triages.set(job.id, { result, overrides, model_verdict, vision });
+  if (overrides.length > 0) db.overrideLog.push({ triage_id: triageId, job_id: job.id, at, overrides });
   let assigned: any = null; let quote: any = null;
   if (result.verdict === "DIY_SAFE") { job.status = "DIY_RESOLVED"; }
   else {
@@ -274,6 +276,12 @@ function seed() {
   db.users.set("home-1", { id: "home-1", role: "homeowner", email: "owner@example.com", created_at: "2025-06-01T00:00:00.000Z", status: "active" });
   db.homeowners.set("home-1", { user_id: "home-1", suburb: "Newtown", postcode: "2042" });
   db.names.set("home-1", "Alex (homeowner)"); db.emailToId.set("owner@example.com", "home-1"); db.demoIds.add("home-1");
+  db.users.set("admin-1", { id: "admin-1", role: "admin", email: "admin@example.com", created_at: "2024-01-01T00:00:00.000Z", status: "active" });
+  db.names.set("admin-1", "Operations (owner)"); db.emailToId.set("admin@example.com", "admin-1"); db.demoIds.add("admin-1");
+  // A pending tradie so the verification queue has something real to approve.
+  db.users.set("pend-1", { id: "pend-1", role: "tradie", email: "newbie@example.com", created_at: "2026-07-01T00:00:00.000Z", status: "active" });
+  db.tradies.set("pend-1", { user_id: "pend-1", business_name: "Enmore Hot Water Co", abn: "55511122233", trades: ["plumbing_water"], licences: [{ number: "PL-9910", class: "Plumbing contractor licence", state: "NSW", verified_status: "pending" }], insurance: {}, service_postcodes: ["2042", "2048"], rating_avg: 0, jobs_completed: 0, verified_status: "pending" });
+  db.names.set("pend-1", "Enmore Hot Water Co");
   mkTradie("spark-1", "spark@example.com", "Sam · Inner West Electrical", "Inner West Electrical", ["electrical", "appliance"], "Unrestricted electrical licence", ["2042", "2040", "2037"], 4.8, 40, 20);
   mkTradie("plumb-1", "plumb@example.com", "Pat · Newtown Plumbing Co", "Newtown Plumbing Co", ["plumbing_water"], "Plumbing contractor licence", ["2042", "2043"], 4.6, 25, 35);
   const t0 = Date.now();
@@ -305,8 +313,44 @@ export function handleRequest(method: string, path: string, body: any, authHeade
     if (method === "POST" && seg[0] === "auth" && seg[1] === "register") return doRegister(body);
     if (method === "POST" && seg[0] === "auth" && seg[1] === "login") return doLogin(body);
     if (method === "POST" && seg[0] === "auth" && seg[1] === "demo") { const u = db.users.get(seg[2]!); if (!u || !db.demoIds.has(seg[2]!)) return err(404, "Unknown demo account"); return ok(authResult(u)); }
-    if (method === "GET" && seg[0] === "demo" && seg[1] === "identities") return ok([...db.demoIds].map((id) => db.users.get(id)).filter((u) => u && u.role !== "admin").map((u) => ({ id: u.id, role: u.role, label: db.names.get(u.id) ?? u.email })));
-    if (method === "GET" && seg[0] === "me" && seg.length === 1) { const u = need("homeowner", "tradie"); return ok({ id: u.sub, role: u.role, name: u.name }); }
+    if (method === "GET" && seg[0] === "demo" && seg[1] === "identities") return ok([...db.demoIds].map((id) => db.users.get(id)).filter(Boolean).map((u) => ({ id: u.id, role: u.role, label: db.names.get(u.id) ?? u.email })));
+    if (method === "GET" && seg[0] === "me" && seg.length === 1) { const u = need("homeowner", "tradie", "admin"); return ok({ id: u.sub, role: u.role, name: u.name }); }
+
+    // admin ops dashboard
+    if (method === "GET" && seg[0] === "admin" && seg[1] === "overview") {
+      need("admin");
+      const jobs = [...db.jobs.values()]; const quotes = [...db.quotes.values()];
+      const bookings = [...db.bookings.values()]; const payments = [...db.payments.values()];
+      const captured = payments.filter((p) => p.status === "captured"); const held = payments.filter((p) => p.status === "authorized");
+      const accepted = quotes.filter((q) => q.status === "accepted").length;
+      const reached = (st: string[]) => jobs.filter((j) => st.includes(j.status)).length;
+      const tradies = [...db.tradies.values()];
+      return ok({
+        stats: {
+          gmv: captured.reduce((s, p) => s + (p.amount_captured ?? 0), 0),
+          revenue: captured.reduce((s, p) => s + (p.platform_fee ?? 0), 0),
+          held: held.reduce((s, p) => s + p.amount_authorized, 0),
+          jobs_posted: jobs.length, diy_resolved: reached(["DIY_RESOLVED"]), declined: reached(["DECLINED"]),
+          acceptance_rate: quotes.length > 0 ? accepted / quotes.length : null,
+          tradies_total: tradies.length, tradies_verified: tradies.filter((t) => t.verified_status === "verified").length,
+        },
+        funnel: [
+          { key: "posted", label: "Problems posted", count: jobs.length },
+          { key: "priced", label: "Firm quote sent", count: jobs.filter((j) => quotesForJob(j.id).length > 0).length },
+          { key: "booked", label: "Booked (payment held)", count: bookings.length },
+          { key: "completed", label: "Completed & paid", count: bookings.filter((b) => b.status === "completed").length },
+          { key: "reviewed", label: "Reviewed", count: reached(["REVIEWED"]) },
+        ],
+        overrides: [...db.overrideLog].reverse().slice(0, 20),
+        leakage: [...db.leakageLog].reverse().slice(0, 20),
+        verification: tradies.filter((t) => t.verified_status === "pending" || t.verified_status === "unverified"),
+      });
+    }
+    if (method === "POST" && seg[0] === "admin" && seg[1] === "tradies" && seg[3] === "verify") {
+      need("admin"); const t = db.tradies.get(seg[2]!); if (!t) return err(404, "Tradie not found");
+      t.verified_status = "verified"; t.licences = t.licences.map((l: any) => ({ ...l, verified_status: "verified" }));
+      return ok(t);
+    }
 
     // homeowner
     if (method === "POST" && seg[0] === "jobs" && seg.length === 1) { const u = need("homeowner"); if (!body?.description) return err(400, "description required"); const r = createJob({ ...body, homeowner_id: u.sub }); return ok({ job: jobSummary(r.job), triage: r.triage, overrides: r.overrides, model_verdict: r.model_verdict, assigned_tradie: r.assigned ? tradieSummary(r.assigned.user_id) : null, quote: r.quote ? quoteView(r.quote) : null, vision: r.vision, ballpark: r.ballpark }, 201); }
@@ -349,7 +393,9 @@ export function handleRequest(method: string, path: string, body: any, authHeade
     if (seg[0] === "threads" && seg[2] === "messages") {
       const u = need("homeowner", "tradie"); if (!db.threads.get(seg[1]!)) return err(404, "Thread not found");
       if (method === "GET") return ok([...db.messages.values()].filter((m) => m.thread_id === seg[1]).sort((a, b) => a.created_at.localeCompare(b.created_at)));
-      const m = mask(String(body?.body ?? "")); const msg = { id: uid(), thread_id: seg[1], sender_role: u.role === "tradie" ? "tradie" : "homeowner", body: m.body, redacted: m.redacted, created_at: nowIso() }; db.messages.set(msg.id, msg); return ok(msg, 201);
+      const m = mask(String(body?.body ?? "")); const msg = { id: uid(), thread_id: seg[1], sender_role: u.role === "tradie" ? "tradie" : "homeowner", body: m.body, redacted: m.redacted, created_at: nowIso() }; db.messages.set(msg.id, msg);
+      if (m.redacted) db.leakageLog.push({ thread_id: seg[1], sender_role: msg.sender_role, at: msg.created_at });
+      return ok(msg, 201);
     }
     if (method === "POST" && seg[0] === "bookings" && seg[2] === "complete") { need("homeowner", "tradie"); return doComplete(seg[1]!); }
     if (method === "POST" && seg[0] === "bookings" && seg[2] === "review") { const u = need("homeowner", "tradie"); return doReview(u, seg[1]!, body); }

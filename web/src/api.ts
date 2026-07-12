@@ -1,6 +1,7 @@
 // Thin typed API client. Sends the session token as a Bearer Authorization
 // header. Token + identity are cached in localStorage.
 import type {
+  AdminOverview,
   AuthResult,
   Booking,
   CreateJobResponse,
@@ -146,6 +147,10 @@ export const api = {
   completeBooking: (id: string) => req<Booking>("POST", `/bookings/${id}/complete`),
   review: (bookingId: string, overall: number, dimensions: Record<string, number>, text: string) =>
     req<unknown>("POST", `/bookings/${bookingId}/review`, { overall, dimensions, text }),
+
+  // admin ops dashboard
+  adminOverview: () => req<AdminOverview>("GET", "/admin/overview"),
+  verifyTradie: (id: string) => req<unknown>("POST", `/admin/tradies/${id}/verify`),
 
   // variations (§4)
   proposeVariation: (bookingId: string, amount: number, reason: string) =>

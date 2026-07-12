@@ -9,6 +9,7 @@ import { Jobs } from "./views/Jobs";
 import { JobDetail } from "./views/JobDetail";
 import { Leads } from "./views/Leads";
 import { LeadDetail } from "./views/LeadDetail";
+import { Admin } from "./views/Admin";
 
 function ThemeToggle() {
   const [theme, setTheme] = useState<"light" | "dark">(
@@ -55,6 +56,9 @@ function TopBar() {
             {identity.role === "tradie" && (
               <NavLink to="/leads" className={({ isActive }) => (isActive ? "active" : "")}>Browse jobs</NavLink>
             )}
+            {identity.role === "admin" && (
+              <NavLink to="/admin" className={({ isActive }) => (isActive ? "active" : "")}>Operations</NavLink>
+            )}
           </nav>
         )}
         <span className="spacer" />
@@ -76,10 +80,10 @@ function TopBar() {
 function Home() {
   const { identity } = useSession();
   if (!identity) return <Login />;
-  return <Navigate to={identity.role === "tradie" ? "/leads" : "/new"} replace />;
+  return <Navigate to={identity.role === "tradie" ? "/leads" : identity.role === "admin" ? "/admin" : "/new"} replace />;
 }
 
-function Guard({ role, children }: { role: "homeowner" | "tradie"; children: JSX.Element }) {
+function Guard({ role, children }: { role: "homeowner" | "tradie" | "admin"; children: JSX.Element }) {
   const { identity } = useSession();
   if (!identity) return <Navigate to="/" replace />;
   if (identity.role !== role) return <Navigate to="/" replace />;
@@ -92,10 +96,12 @@ function BottomNav() {
   if (!identity) return null;
   const items = identity.role === "tradie"
     ? [{ to: "/leads", label: "Jobs", icon: Icon.tools }]
-    : [
-        { to: "/new", label: "New job", icon: Icon.tools },
-        { to: "/jobs", label: "My jobs", icon: Icon.doc },
-      ];
+    : identity.role === "admin"
+      ? [{ to: "/admin", label: "Operations", icon: Icon.shield }]
+      : [
+          { to: "/new", label: "New job", icon: Icon.tools },
+          { to: "/jobs", label: "My jobs", icon: Icon.doc },
+        ];
   return (
     <nav className="bottomnav">
       {items.map((i) => (
@@ -120,6 +126,7 @@ export function App() {
           <Route path="/jobs/:id" element={<Guard role="homeowner"><JobDetail /></Guard>} />
           <Route path="/leads" element={<Guard role="tradie"><Leads /></Guard>} />
           <Route path="/leads/:id" element={<Guard role="tradie"><LeadDetail /></Guard>} />
+          <Route path="/admin" element={<Guard role="admin"><Admin /></Guard>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

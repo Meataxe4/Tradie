@@ -139,7 +139,7 @@ export function createApp(deps: AppDeps) {
   api.get("/demo/identities", wrap((_req, res) => {
     const identities = [...store.demoAccountIds]
       .map((id) => store.users.get(id))
-      .filter((u): u is NonNullable<typeof u> => Boolean(u) && u!.role !== "admin")
+      .filter((u): u is NonNullable<typeof u> => Boolean(u))
       .map((u) => ({ id: u.id, role: u.role, label: store.displayNames.get(u.id) ?? u.email }));
     res.json(identities);
   }));
@@ -486,6 +486,60 @@ export function createApp(deps: AppDeps) {
   }));
 
   // ---- Admin ----
+  // GET /admin/overview — the ops dashboard in one call: KPIs, conversion
+  // funnel, and the three operational queues (overrides, leakage, verification).
+  api.get("/admin/overview", wrap((req, res) => {
+    requireRole(req, "admin");
+    const jobs = [...store.jobs.values()];
+    const quotes = [...store.quotes.values()];
+    const bookings = [...store.bookings.values()];
+    const payments = [...store.payments.values()];
+
+    const captured = payments.filter((p) => p.status === "captured");
+    const held = payments.filter((p) => p.status === "authorized");
+    const offeredOrDecided = quotes.length;
+    const accepted = quotes.filter((q) => q.status === "accepted").length;
+
+    const reached = (statuses: string[]) => jobs.filter((j) => statuses.includes(j.status)).length;
+    const funnel = [
+      { key: "posted", label: "Problems posted", count: jobs.length },
+      { key: "priced", label: "Firm quote sent", count: jobs.filter((j) => store.quotesForJob(j.id).length > 0).length },
+      { key: "booked", label: "Booked (payment held)", count: bookings.length },
+      { key: "completed", label: "Completed & paid", count: bookings.filter((b) => b.status === "completed").length },
+      { key: "reviewed", label: "Reviewed", count: reached(["REVIEWED"]) },
+    ];
+
+    const tradies = store.allTradies();
+    res.json({
+      stats: {
+        gmv: captured.reduce((s, p) => s + (p.amount_captured ?? 0), 0),
+        revenue: captured.reduce((s, p) => s + (p.platform_fee ?? 0), 0),
+        held: held.reduce((s, p) => s + p.amount_authorized, 0),
+        jobs_posted: jobs.length,
+        diy_resolved: reached(["DIY_RESOLVED"]),
+        declined: reached(["DECLINED"]),
+        acceptance_rate: offeredOrDecided > 0 ? accepted / offeredOrDecided : null,
+        tradies_total: tradies.length,
+        tradies_verified: tradies.filter((t) => t.verified_status === "verified").length,
+      },
+      funnel,
+      overrides: [...store.overrideLog].reverse().slice(0, 20),
+      leakage: [...store.leakageLog].reverse().slice(0, 20),
+      verification: tradies.filter((t) => t.verified_status === "pending" || t.verified_status === "unverified"),
+    });
+  }));
+
+  // POST /admin/tradies/:id/verify — approve a pending trade (licences included).
+  api.post("/admin/tradies/:id/verify", wrap((req, res) => {
+    requireRole(req, "admin");
+    const tradie = store.tradies.get(param(req, "id"));
+    if (!tradie) throw new HttpError(404, "Tradie not found");
+    tradie.verified_status = "verified";
+    tradie.licences = tradie.licences.map((l) => ({ ...l, verified_status: "verified" as const }));
+    store.tradies.set(tradie.user_id, tradie);
+    res.json(tradie);
+  }));
+
   api.get("/admin/override-log", wrap((req, res) => {
     requireRole(req, "admin");
     res.json(store.overrideLog);
