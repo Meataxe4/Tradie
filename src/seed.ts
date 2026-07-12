@@ -14,6 +14,7 @@ export function seed(store: MemoryStore, now = "2026-07-04T00:00:00.000Z"): void
     ["home-1", "owner@example.com", "Alex (homeowner)"],
     ["spark-1", "spark@example.com", "Sam · Inner West Electrical"],
     ["plumb-1", "plumb@example.com", "Pat · Newtown Plumbing Co"],
+    ["chip-1", "chip@example.com", "Charlie · Inner West Carpentry"],
     ["admin-1", "admin@example.com", "Admin"],
   ];
   for (const [id, email, name] of demoAccounts) {
@@ -104,6 +105,35 @@ export function seed(store: MemoryStore, now = "2026-07-04T00:00:00.000Z"): void
     jobs_completed: 25,
     verified_status: "verified",
     avg_response_minutes: 35,
+  });
+
+  store.users.set("chip-1", {
+    id: "chip-1",
+    role: "tradie",
+    email: "chip@example.com",
+    created_at: now,
+    status: "active",
+  });
+  store.tradies.set("chip-1", {
+    user_id: "chip-1",
+    business_name: "Inner West Carpentry",
+    abn: "45678901234",
+    trades: ["carpentry", "handyman"],
+    licences: [
+      {
+        number: "BC-33333",
+        class: "Builder licence — carpentry",
+        state: "NSW",
+        verified_status: "verified",
+        expiry: "2027-01-01",
+      },
+    ],
+    insurance: { public_liability_expiry: "2027-01-01", doc_ref: "pl-doc-3" },
+    service_postcodes: ["2042", "2040", "2043"],
+    rating_avg: 4.7,
+    jobs_completed: 31,
+    verified_status: "verified",
+    avg_response_minutes: 28,
   });
 }
 

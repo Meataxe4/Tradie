@@ -180,7 +180,7 @@ export class MockTriageClient implements TriageLlmClient {
     }
 
     // --- PRO: burst / leaking water pipe, tap/mixer, cistern, hot water ---
-    if (has("burst pipe", "leaking pipe", "pipe leak", "tap replace", "mixer", "cistern", "hot water system", "no hot water", "blocked drain machine")) {
+    if (has("burst pipe", "leaking pipe", "pipe leak", "ceiling leak", "leaking through the ceiling", "leak in the ceiling", "water stain on the ceiling", "tap replace", "mixer", "cistern", "hot water system", "no hot water", "blocked drain machine")) {
       return needsPro({
         category: "plumbing_water",
         regulated_domains: ["plumbing_water"],
@@ -236,6 +236,42 @@ export class MockTriageClient implements TriageLlmClient {
           "Please don't disturb, sand, drill or break this material. It may contain " +
           "asbestos and needs a licensed removalist. I've written up the details so " +
           "you'll get accurate private quotes shortly.",
+        photoCount: input.photoCount,
+      });
+    }
+
+    // --- PRO: plasterboard / ceiling repair (carpentry; under $5k = no licence class) ---
+    if (has("plasterboard", "ceiling repair", "repair the ceiling", "gyprock")) {
+      return needsPro({
+        category: "carpentry",
+        regulated_domains: ["none"],
+        recommended_trade: "builder",
+        licence: null,
+        why: "Ceiling sheeting needs a qualified carpenter to replace and finish safely.",
+        title: "Plasterboard ceiling repair",
+        summary: "A damaged plasterboard ceiling section needs replacing by a carpenter.",
+        symptoms: ["Damaged or water-affected plasterboard"],
+        questions: ["Roughly how large is the damaged section?", "Is the ceiling insulated above?"],
+        userMessage:
+          "This is a carpentry repair. I've written up the details so you'll get a firm quote shortly.",
+        photoCount: input.photoCount,
+      });
+    }
+
+    // --- PRO: patch & paint (handyman; legal DIY but routed when part of a project) ---
+    if (has("repaint", "patch, sand", "patch and paint", "paint the ceiling")) {
+      return needsPro({
+        category: "handyman",
+        regulated_domains: ["none"],
+        recommended_trade: "handyman",
+        licence: null,
+        why: "Finishing work — a handyman will patch, sand and repaint for a clean result.",
+        title: "Patch and repaint",
+        summary: "A repaired surface needs patching, sanding and repainting.",
+        symptoms: ["Surface needs patching and repainting"],
+        questions: ["Do you have matching paint, or should the trade colour-match?"],
+        userMessage:
+          "A handyman can make this look like it never happened. You'll get a firm quote shortly.",
         photoCount: input.photoCount,
       });
     }

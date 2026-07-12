@@ -24,6 +24,7 @@ const db = {
   passwords: new Map<string, string>(), emailToId: new Map<string, string>(), names: new Map<string, string>(),
   demoIds: new Set<string>(),
   overrideLog: [] as any[], leakageLog: [] as any[],
+  projects: new Map<string, any>(),
 };
 
 // ---------- triage (mirrors src/triage) ----------
@@ -44,12 +45,16 @@ function classify(desc: string): AnyMap {
   }
   if (has("gas hot water", "gas cooktop", "gas heater", "gas appliance"))
     return { verdict: "NEEDS_LICENSED_PRO", category: "gas", regulated_domains: ["gas"], safety_flags: ["none"], recommended_trade: "gasfitter", required_licence_class: "Gasfitting licence", diy_guidance: null, why_pro_needed: "Gas work is licensed — it must be done by a licensed gasfitter.", job_spec: spec("Gas appliance fault", "A gas appliance needs a licensed gasfitter.", ["Gas appliance not operating correctly"], ["Is the pilot light staying lit?"], "routine"), user_message: "This needs a licensed gasfitter — gas work isn't a DIY job.", ...base };
-  if (has("burst pipe", "leaking pipe", "pipe leak", "hot water system", "no hot water"))
+  if (has("burst pipe", "leaking pipe", "pipe leak", "ceiling leak", "leaking through the ceiling", "leak in the ceiling", "water stain on the ceiling", "hot water system", "no hot water"))
     return { verdict: "NEEDS_LICENSED_PRO", category: "plumbing_water", regulated_domains: ["plumbing_water"], safety_flags: ["none"], recommended_trade: "plumber", required_licence_class: "Plumbing contractor licence", diy_guidance: null, why_pro_needed: "Water/sewer-connected plumbing is licensed work — it needs a licensed plumber.", job_spec: spec("Water-connected plumbing fault", "A water/sewer-connected plumbing issue needs a licensed plumber.", ["Leak or fault on water-connected plumbing"], ["Have you turned off the water at the mains?"], "urgent"), user_message: "This needs a licensed plumber — water-connected plumbing isn't a DIY job.", ...base };
   if (has("mixer", "tap", "cistern", "toilet"))
     return { verdict: "NEEDS_LICENSED_PRO", category: "plumbing_water", regulated_domains: ["plumbing_water"], safety_flags: ["none"], recommended_trade: "plumber", required_licence_class: "Plumbing contractor licence", diy_guidance: null, why_pro_needed: "Water-connected plumbing is licensed work — it needs a licensed plumber.", job_spec: spec("Tap / toilet plumbing", "A water-connected fixture needs a licensed plumber.", ["Fixture not working correctly"], [], "routine"), user_message: "This needs a licensed plumber. Here's your firm price.", ...base };
   if (has("oven", "dishwasher", "washing machine", "clothes dryer", "rangehood", "range hood", "electric cooktop"))
     return { verdict: "NEEDS_LICENSED_PRO", category: "appliance", regulated_domains: ["none"], safety_flags: ["none"], recommended_trade: "handyman", required_licence_class: null, diy_guidance: null, why_pro_needed: "A fixed appliance repair — best handled by a qualified appliance technician.", job_spec: spec("Appliance repair", "A household appliance has stopped working correctly.", ["Appliance not operating as expected"], ["What's the make and model?"], "routine"), user_message: "This looks like an appliance repair.", ...base };
+  if (has("plasterboard", "ceiling repair", "repair the ceiling", "gyprock"))
+    return { verdict: "NEEDS_LICENSED_PRO", category: "carpentry", regulated_domains: ["none"], safety_flags: ["none"], recommended_trade: "builder", required_licence_class: null, diy_guidance: null, why_pro_needed: "Ceiling sheeting needs a qualified carpenter to replace and finish safely.", job_spec: spec("Plasterboard ceiling repair", "A damaged plasterboard ceiling section needs replacing by a carpenter.", ["Damaged or water-affected plasterboard"], ["Roughly how large is the damaged section?"], "routine"), user_message: "This is a carpentry repair. You'll get a firm quote shortly.", ...base };
+  if (has("repaint", "patch, sand", "patch and paint", "paint the ceiling"))
+    return { verdict: "NEEDS_LICENSED_PRO", category: "handyman", regulated_domains: ["none"], safety_flags: ["none"], recommended_trade: "handyman", required_licence_class: null, diy_guidance: null, why_pro_needed: "Finishing work — a handyman will patch, sand and repaint for a clean result.", job_spec: spec("Patch and repaint", "A repaired surface needs patching, sanding and repainting.", ["Surface needs patching and repainting"], ["Should the trade colour-match the paint?"], "routine"), user_message: "A handyman can make this look like it never happened.", ...base };
   if (has("cabinet", "hinge", "door won't close", "drawer", "sticking door", "squeaky door"))
     return { verdict: "DIY_SAFE", category: "carpentry", regulated_domains: ["none"], safety_flags: ["none"], recommended_trade: "handyman", required_licence_class: null, diy_guidance: { steps: ["Open the door and check the hinge screws are all present and seated.", "Tighten the two screws on each hinge plate with a Phillips screwdriver.", "If the door still rubs, loosen the depth adjustment screw a quarter turn and re-test."], tools_required: ["Phillips screwdriver"], stop_conditions: ["If the hinge is cracked or the cabinet is pulling off the wall, stop — that's a mounting issue for a handyman/carpenter."] }, why_pro_needed: null, job_spec: null, user_message: "This is almost always loose hinge screws — an easy fix. Here's how.", ...base, disclaimer: `${GENERAL_DISCLAIMER} ${DIY_DISCLAIMER}` };
   if (has("blocked sink", "blocked basin", "slow drain", "draining slow", "clogged sink", "blocked toilet"))
@@ -215,9 +220,53 @@ function reviewsForBooking(bid: string) { return [...db.reviews.values()].filter
 function leadView(job: any, tradieId: string) {
   const tri = db.triages.get(job.id); const booking = [...db.bookings.values()].find((b) => b.job_id === job.id && b.tradie_id === tradieId);
   const owner = db.users.get(job.homeowner_id); const mine = quotesForJob(job.id).find((q) => q.tradie_id === tradieId);
-  return { job_id: job.id, category: job.category, suburb: job.suburb, full_address: booking ? job.full_address ?? null : null, urgency: job.urgency, status: job.status, job_spec: tri?.result.job_spec ?? null, why_pro_needed: tri?.result.why_pro_needed ?? null, required_licence_class: tri?.result.required_licence_class ?? null, photos: job.photos, vision: tri?.vision ?? null, created_at: job.created_at, quote_count: quotesForJob(job.id).filter((q) => q.status !== "declined").length, quote_kind: job.quote_kind ?? null, assigned_to_me: job.assigned_tradie_id === tradieId, poster: { suburb: job.suburb, member_since: owner?.created_at ?? null, verified: true }, my_quote: mine ? quoteView(mine) : null };
+  return { job_id: job.id, category: job.category, suburb: job.suburb, full_address: booking ? job.full_address ?? null : null, urgency: job.urgency, status: job.status, job_spec: tri?.result.job_spec ?? null, why_pro_needed: tri?.result.why_pro_needed ?? null, required_licence_class: tri?.result.required_licence_class ?? null, photos: job.photos, vision: tri?.vision ?? null, stage_label: job.stage_label ?? null, stage_index: job.stage_index ?? null, certificate: job.certificate ?? null, certificate_required: CERT_REQ[job.category] ?? null, created_at: job.created_at, quote_count: quotesForJob(job.id).filter((q) => q.status !== "declined").length, quote_kind: job.quote_kind ?? null, assigned_to_me: job.assigned_tradie_id === tradieId, poster: { suburb: job.suburb, member_since: owner?.created_at ?? null, verified: true }, my_quote: mine ? quoteView(mine) : null };
 }
 function jobSummary(job: any) { const tri = db.triages.get(job.id); return { ...job, verdict: tri?.result.verdict ?? null, quote_count: quotesForJob(job.id).filter((q) => q.status !== "declined").length }; }
+
+// ---------- concept-stage: certificates, multi-trade, projects ----------
+const CERT_REQ: Record<string, { name: string; window: string }> = {
+  electrical: { name: "Certificate of Compliance (CCEW)", window: "within 7 days of completion" },
+  gas: { name: "Gas compliance certificate", window: "within 5 business days" },
+  plumbing_water: { name: "Plumbing Certificate of Compliance", window: "on completion" },
+  hvac: { name: "Electrical/refrigerant compliance certificate", window: "within 7 days of completion" },
+};
+const MT_PATTERNS: Array<{ match: RegExp; title: string; stages: Array<{ category: string; label: string; description: string }> }> = [
+  { match: /(ceiling|roof).{0,40}(leak|water (stain|damage|dripping))|(leak|water).{0,40}(through|from|in) the (ceiling|roof)|water stain on the ceiling/i,
+    title: "Ceiling leak — find, fix and make good",
+    stages: [
+      { category: "plumbing_water", label: "Stop the leak", description: "Find and repair the leaking pipe above the ceiling" },
+      { category: "carpentry", label: "Repair the ceiling", description: "Replace the water-damaged plasterboard ceiling section" },
+      { category: "handyman", label: "Patch & paint", description: "Patch, sand and repaint the repaired ceiling section" },
+    ] },
+  { match: /replace.{0,30}(electric )?hot water (system|service|heater)|hot water (system|service|heater).{0,30}replace/i,
+    title: "Hot water system replacement",
+    stages: [
+      { category: "plumbing_water", label: "Swap the unit", description: "Disconnect the old hot water system and install the replacement unit" },
+      { category: "electrical", label: "Reconnect power", description: "A power point and fixed wiring connection for the new hot water system needs a licensed electrician" },
+    ] },
+];
+function projectViewMock(pr: any): AnyMap {
+  const stages = pr.job_ids.map((jid: string, i: number) => {
+    const job = db.jobs.get(jid); if (!job) return null;
+    const qs = quotesForJob(job.id);
+    const quote = qs.find((q: any) => q.status === "accepted") ?? qs.find((q: any) => q.status === "offered");
+    const tri = db.triages.get(job.id);
+    return {
+      stage_index: job.stage_index ?? i + 1,
+      stage_label: job.stage_label ?? tri?.result.job_spec?.title ?? job.category,
+      job_id: job.id, category: job.category, status: job.status,
+      quote_amount: quote?.amount ?? null,
+      ballpark: job.status === "AWAITING_QUOTE" ? qBallpark(job.category, job.urgency, tri?.result.job_spec?.symptoms?.length ?? 0) : null,
+      certificate: job.certificate ?? null,
+      certificate_required: CERT_REQ[job.category]?.name ?? null,
+    };
+  }).filter(Boolean).sort((a: any, b: any) => a.stage_index - b.stage_index);
+  const priced = stages.filter((st: any) => st.quote_amount !== null);
+  return { id: pr.id, title: pr.title, kind: pr.kind, created_at: pr.created_at, stages,
+    firm_total: priced.reduce((sum: number, st: any) => sum + st.quote_amount, 0),
+    all_priced: stages.length > 0 && priced.length === stages.length };
+}
 
 // ---------- marketplace ----------
 function createFirmQuote(job: any, tradieId: string, kind: string, amount: number, inclusions: string, at: string) {
@@ -225,6 +274,28 @@ function createFirmQuote(job: any, tradieId: string, kind: string, amount: numbe
   db.quotes.set(q.id, q); db.threads.set(q.id, { id: q.id, quote_id: q.id, job_id: job.id }); return q;
 }
 function createJob(input: AnyMap) {
+  // Concept-stage: decompose a multi-trade problem into a sequenced project.
+  if (!input.category && !input.project_id && !input._stage) {
+    const hit = MT_PATTERNS.find((mp) => mp.match.test(input.description));
+    if (hit) {
+      const probe = gate(uid(), classify(input.description));
+      if (probe.result.verdict === "NEEDS_LICENSED_PRO") {
+        const pr = { id: uid(), homeowner_id: input.homeowner_id, title: hit.title, kind: "multi_trade", job_ids: [] as string[], created_at: input._at ?? nowIso() };
+        db.projects.set(pr.id, pr);
+        const results: any[] = [];
+        hit.stages.forEach((st, i) => {
+          const res = createSingleJobMock({ ...input, description: st.description, category: st.category,
+            photos: i === 0 ? input.photos : [], captions: i === 0 ? input.captions : undefined,
+            _stage: { project_id: pr.id, index: i + 1, label: st.label } });
+          pr.job_ids.push(res.job.id); results.push(res);
+        });
+        return { ...results[0], project: projectViewMock(pr) };
+      }
+    }
+  }
+  return createSingleJobMock(input);
+}
+function createSingleJobMock(input: AnyMap) {
   // Photo captions are real text signal — fold them into what triage reads
   // (mirrors triageText on the backend), so a caption describing a hazard escalates.
   const captions: string[] = (input.captions ?? []).filter((c: any) => c && String(c).trim());
@@ -236,6 +307,8 @@ function createJob(input: AnyMap) {
   // Mock can't see pixels → "preview" (never "live"); UI labels it honestly.
   const vision = { photos: photoCount, captions: captions.length, analyzed: false, mode: photoCount > 0 ? "preview" : "none" };
   const job: AnyMap = { id: uid(), homeowner_id: input.homeowner_id, category: input.category ?? result.category, description: input.description, photos: input.photos ?? [], suburb: input.suburb, postcode: input.postcode, state: input.state, full_address: input.full_address, urgency: result.job_spec?.urgency ?? "routine", status: "TRIAGED", created_at: at };
+  if (input._stage) { job.project_id = input._stage.project_id; job.stage_index = input._stage.index; job.stage_label = input._stage.label; }
+  else if (input.project_id) { const pr = db.projects.get(input.project_id); if (pr && pr.homeowner_id === input.homeowner_id) { pr.job_ids.push(job.id); job.project_id = pr.id; job.stage_index = pr.job_ids.length; job.stage_label = result.job_spec?.title ?? String(input.description).slice(0, 60); } }
   db.jobs.set(job.id, job); db.triages.set(job.id, { result, overrides, model_verdict, vision });
   if (overrides.length > 0) db.overrideLog.push({ triage_id: triageId, job_id: job.id, at, overrides });
   let assigned: any = null; let quote: any = null;
@@ -284,6 +357,7 @@ function seed() {
   db.names.set("pend-1", "Enmore Hot Water Co");
   mkTradie("spark-1", "spark@example.com", "Sam · Inner West Electrical", "Inner West Electrical", ["electrical", "appliance"], "Unrestricted electrical licence", ["2042", "2040", "2037"], 4.8, 40, 20);
   mkTradie("plumb-1", "plumb@example.com", "Pat · Newtown Plumbing Co", "Newtown Plumbing Co", ["plumbing_water"], "Plumbing contractor licence", ["2042", "2043"], 4.6, 25, 35);
+  mkTradie("chip-1", "chip@example.com", "Charlie · Inner West Carpentry", "Inner West Carpentry", ["carpentry", "handyman"], "Builder licence — carpentry", ["2042", "2040", "2043"], 4.7, 31, 28);
   const t0 = Date.now();
   for (const j of [
     { at: -8 * 3600e3, d: "The oven has stopped heating up properly" },
@@ -353,7 +427,21 @@ export function handleRequest(method: string, path: string, body: any, authHeade
     }
 
     // homeowner
-    if (method === "POST" && seg[0] === "jobs" && seg.length === 1) { const u = need("homeowner"); if (!body?.description) return err(400, "description required"); const r = createJob({ ...body, homeowner_id: u.sub }); return ok({ job: jobSummary(r.job), triage: r.triage, overrides: r.overrides, model_verdict: r.model_verdict, assigned_tradie: r.assigned ? tradieSummary(r.assigned.user_id) : null, quote: r.quote ? quoteView(r.quote) : null, vision: r.vision, ballpark: r.ballpark }, 201); }
+    if (method === "POST" && seg[0] === "jobs" && seg.length === 1) { const u = need("homeowner"); if (!body?.description) return err(400, "description required"); const r = createJob({ ...body, homeowner_id: u.sub }); return ok({ job: jobSummary(r.job), triage: r.triage, overrides: r.overrides, model_verdict: r.model_verdict, assigned_tradie: r.assigned ? tradieSummary(r.assigned.user_id) : null, quote: r.quote ? quoteView(r.quote) : null, vision: r.vision, ballpark: r.ballpark, project: r.project ?? null }, 201); }
+    if (method === "POST" && seg[0] === "projects" && seg.length === 1) { const u = need("homeowner"); const title = String(body?.title ?? "").trim(); if (!title) return err(400, "Give the project a name"); const pr = { id: uid(), homeowner_id: u.sub, title, kind: "custom", job_ids: [], created_at: nowIso() }; db.projects.set(pr.id, pr); return ok(projectViewMock(pr), 201); }
+    if (method === "GET" && seg[0] === "projects" && seg.length === 1) { const u = need("homeowner"); return ok([...db.projects.values()].filter((pr) => pr.homeowner_id === u.sub).sort((a, b) => b.created_at.localeCompare(a.created_at)).map(projectViewMock)); }
+    if (method === "GET" && seg[0] === "projects" && seg.length === 2) { const u = need("homeowner"); const pr = db.projects.get(seg[1]!); if (!pr || pr.homeowner_id !== u.sub) return err(404, "Project not found"); return ok(projectViewMock(pr)); }
+    if (method === "POST" && seg[0] === "bookings" && seg[2] === "certificate") {
+      const u = need("tradie"); const b2 = db.bookings.get(seg[1]!); if (!b2) return err(404, "Booking not found");
+      if (b2.tradie_id !== u.sub) return err(403, "This booking isn't yours");
+      if (b2.status !== "completed") return err(400, "Certificates are lodged after completion");
+      const job = db.jobs.get(b2.job_id); const reqmt = CERT_REQ[job.category];
+      if (!reqmt) return err(400, "This work type has no certificate regime (statutory warranties apply)");
+      if (job.certificate) return err(400, "A certificate is already attached to this job");
+      const reference = String(body?.reference ?? "").trim(); if (!reference) return err(400, "Enter the certificate reference number");
+      job.certificate = { name: reqmt.name, reference, lodged_at: nowIso() };
+      return ok(job.certificate, 201);
+    }
     if (method === "GET" && seg[0] === "jobs" && seg.length === 1) { const u = need("homeowner"); return ok([...db.jobs.values()].filter((j) => j.homeowner_id === u.sub).sort((a, b) => b.created_at.localeCompare(a.created_at)).map(jobSummary)); }
     if (method === "GET" && seg[0] === "jobs" && seg.length === 2) { const u = need("homeowner"); const job = db.jobs.get(seg[1]!); if (!job || job.homeowner_id !== u.sub) return err(404, "Job not found"); const tri = db.triages.get(job.id); const booking = [...db.bookings.values()].find((b) => b.job_id === job.id) ?? null; const ball = job.status === "AWAITING_QUOTE" || job.status === "QUOTED" ? qBallpark(job.category, job.urgency, tri?.result.job_spec?.symptoms?.length ?? 0) : null; return ok({ ...job, triage: tri?.result ?? null, vision: tri?.vision ?? null, booking, payment: booking ? paymentForBooking(booking.id) : null, variations: booking ? variationsForBooking(booking.id) : [], reviews: booking ? reviewsForBooking(booking.id) : [], assigned_tradie: job.assigned_tradie_id ? tradieSummary(job.assigned_tradie_id) : null, ballpark: ball }); }
     if (method === "GET" && seg[0] === "jobs" && seg[2] === "quotes") { const u = need("homeowner"); const job = db.jobs.get(seg[1]!); if (!job || job.homeowner_id !== u.sub) return err(404, "Job not found"); return ok(quotesForJob(job.id).map(quoteView)); }

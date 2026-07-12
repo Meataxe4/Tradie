@@ -419,6 +419,32 @@ dl.spec dd ul { margin: 0; padding-left: 18px; }
 .lead-photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .lead-photo { aspect-ratio: 1; border-radius: 10px; background-size: cover; background-position: center; border: 1px solid var(--hairline); display: block; }
 
+/* Concept-stage: projects, stages, certificates */
+.proj-strip { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; align-items: stretch; }
+.proj-card { display: flex; flex-direction: column; gap: 2px; justify-content: center; padding: 12px 16px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--surface); text-decoration: none; min-width: 150px; }
+.proj-card b { font-size: 14px; color: var(--ink); }
+.proj-card span { font-size: 12.5px; color: var(--muted); }
+.proj-card:hover { border-color: var(--accent); }
+.proj-new { display: flex; gap: 8px; align-items: center; flex: 1 1 260px; }
+.proj-new input { flex: 1; }
+.proj-total { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 16px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--surface); margin-bottom: 16px; }
+.proj-note { font-size: 12.5px; color: var(--muted); max-width: 230px; text-align: right; }
+.stage-n { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); font-weight: 700; flex: none; }
+.stage-n svg { width: 18px; height: 18px; }
+.stage-price { font-variant-numeric: tabular-nums; font-size: 15px; flex: none; }
+.stage-price b { color: var(--ink); }
+.stage-price em { font-style: normal; color: var(--muted); font-size: 13px; }
+.stage-link { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--accent); text-decoration: none; margin-bottom: 14px; font-weight: 600; }
+.stage-link svg { width: 14px; height: 14px; }
+.cert-chip { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; padding: 6px 11px; border-radius: 999px; margin-top: 10px; }
+.cert-chip svg { width: 13px; height: 13px; }
+.cert-chip.ok { color: var(--safe); background: var(--safe-bg); }
+.cert-chip.pending { color: var(--unclear); background: var(--unclear-bg); }
+.cert-prompt { margin-top: 12px; padding: 13px 14px; border: 1px dashed color-mix(in srgb, var(--safe) 45%, var(--hairline)); border-radius: 11px; background: color-mix(in srgb, var(--safe) 6%, transparent); }
+.cert-prompt > b { display: flex; align-items: center; gap: 7px; font-size: 13.5px; color: var(--ink); }
+.cert-prompt > b svg { width: 14px; height: 14px; color: var(--safe); }
+.cert-prompt > span { display: block; font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+
 /* Admin ops dashboard (UX #7) */
 .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 18px; }
 .kpi { border: 1px solid var(--hairline); border-radius: 12px; padding: 14px; background: var(--surface); }

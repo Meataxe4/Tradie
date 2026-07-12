@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
 import type { JobDetail as JobDetailT, Quote, QuoteExplanation } from "../types";
 import { Icon, Spinner, money } from "../ui";
@@ -77,6 +77,12 @@ export function JobDetail() {
       <p className="eyebrow">{job.category} · {job.suburb} · posted {timeAgo(job.created_at)}</p>
       <h1 className="page-title">{job.triage?.job_spec?.title ?? `${job.category} · ${job.suburb}`}</h1>
       <p className="page-sub">{job.description}</p>
+
+      {job.project_id && (
+        <Link className="stage-link" to={`/projects/${job.project_id}`}>
+          {Icon.doc}Stage {job.stage_index} of a project{job.stage_label ? ` · ${job.stage_label}` : ""} — view the whole project →
+        </Link>
+      )}
 
       {isPro && <Stepper status={job.status} />}
 
@@ -232,6 +238,10 @@ export function JobDetail() {
                     <>{Icon.tick}<span><b>Paid {money(job.payment.amount_captured ?? job.payment.amount_authorized)}.</b> Released to your tradie on completion.</span></>
                   ) : null}
                 </div>
+              )}
+
+              {job.certificate && (
+                <p className="cert-chip ok" style={{ marginTop: 10 }}>{Icon.shield}{job.certificate.name} · ref {job.certificate.reference} — on your job record</p>
               )}
 
               {job.variations.map((v) => (

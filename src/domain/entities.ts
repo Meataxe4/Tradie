@@ -77,6 +77,28 @@ export type JobStatus =
 
 export type QuoteKind = "price_book" | "custom";
 
+/** Compliance certificate attached to a completed regulated job (concept: certification layer). */
+export interface JobCertificate {
+  name: string; // e.g. "Certificate of Compliance (CCEW)"
+  reference: string; // lodgement/cert reference number
+  lodged_at: string;
+}
+
+/**
+ * A project groups jobs (concept-stage): created automatically when triage
+ * decomposes a multi-trade problem into sequenced stages, or manually by the
+ * customer ("fix the bathroom"). Job order in job_ids IS the stage sequence.
+ * Over time the completed/certified jobs in a project form the home logbook.
+ */
+export interface Project {
+  id: string;
+  homeowner_id: string;
+  title: string;
+  kind: "multi_trade" | "custom";
+  job_ids: string[];
+  created_at: string;
+}
+
 export interface Job {
   id: string;
   homeowner_id: string;
@@ -96,6 +118,12 @@ export interface Job {
   quote_kind?: QuoteKind;
   /** Price-book item key when quote_kind === "price_book". */
   price_book_key?: string;
+  /** Set when this job is a stage of a project (multi-trade or customer project). */
+  project_id?: string;
+  stage_index?: number; // 1-based position in the project's sequence
+  stage_label?: string; // e.g. "Stop the leak"
+  /** Compliance certificate lodged by the trade on completion (regulated work). */
+  certificate?: JobCertificate;
   created_at: string;
 }
 

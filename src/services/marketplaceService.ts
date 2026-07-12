@@ -27,6 +27,8 @@ import {
 } from "../quoting/quoteAssistant.js";
 import type { TriageImage } from "../triage/llmClient.js";
 import type { VisionSummary } from "../triage/triageService.js";
+import { detectMultiTradePlan, type MultiTradePlan } from "../domain/multiTrade.js";
+import { certificateRequirement } from "../domain/certificates.js";
 import type {
   AustralianState,
   Booking,
@@ -34,6 +36,7 @@ import type {
   Message,
   MessageSenderRole,
   Payment,
+  Project,
   Quote,
   QuoteKind,
   Review,
@@ -56,6 +59,10 @@ export interface CreateJobInput {
   images?: TriageImage[];
   /** Homeowner's per-photo note. */
   captions?: string[];
+  /** Attach this job to an existing customer project. */
+  project_id?: string;
+  /** Internal: stage metadata when a multi-trade plan creates this job. */
+  _stage?: { project_id: string; index: number; label: string };
 }
 
 export interface CreateJobResult {
@@ -69,6 +76,30 @@ export interface CreateJobResult {
   vision: VisionSummary;
   /** Pre-visit price range for a custom job awaiting its firm quote; else null. */
   ballpark: { low: number; high: number } | null;
+  /** Set when triage decomposed this into a multi-trade project (concept-stage). */
+  project?: ProjectView;
+}
+
+/** The customer's one-flow view of a project: sequenced stages with prices. */
+export interface ProjectView {
+  id: string;
+  title: string;
+  kind: "multi_trade" | "custom";
+  created_at: string;
+  stages: Array<{
+    stage_index: number;
+    stage_label: string;
+    job_id: string;
+    category: Category;
+    status: Job["status"];
+    quote_amount: number | null;
+    ballpark: { low: number; high: number } | null;
+    certificate: Job["certificate"] | null;
+    certificate_required: string | null;
+  }>;
+  /** Sum of firm quotes so far (cents); indicative until every stage is priced. */
+  firm_total: number;
+  all_priced: boolean;
 }
 
 export class MarketplaceService {
@@ -86,7 +117,65 @@ export class MarketplaceService {
     this.quoteAssistant = quoteAssistant ?? new MockQuoteAssistantClient();
   }
 
+  /**
+   * Concept-stage: one description can span trades. Triage the full problem
+   * first (safety verdicts always win); only a NEEDS_LICENSED_PRO result with a
+   * recognised multi-trade plan is decomposed into a sequenced project — every
+   * stage job then runs the complete triage + gate pipeline itself.
+   */
   async createJob(input: CreateJobInput): Promise<CreateJobResult> {
+    const plan = !input.category && !input.project_id && !input._stage
+      ? detectMultiTradePlan(input.description)
+      : null;
+    if (plan) {
+      const probe = await this.triageSvc.triage({
+        description: input.description,
+        photoCount: input.photos.length,
+        suburb: input.suburb,
+        images: input.images,
+        captions: input.captions,
+      });
+      if (probe.gate.triage.verdict === "NEEDS_LICENSED_PRO") {
+        return this.createMultiTradeProject(input, plan);
+      }
+    }
+    return this.createSingleJob(input);
+  }
+
+  private async createMultiTradeProject(input: CreateJobInput, plan: MultiTradePlan): Promise<CreateJobResult> {
+    const project: Project = {
+      id: uuidv4(),
+      homeowner_id: input.homeowner_id,
+      title: plan.title,
+      kind: "multi_trade",
+      job_ids: [],
+      created_at: this.clock(),
+    };
+    this.store.projects.set(project.id, project);
+
+    const results: CreateJobResult[] = [];
+    for (let i = 0; i < plan.stages.length; i++) {
+      const stage = plan.stages[i]!;
+      const res = await this.createSingleJob({
+        ...input,
+        description: stage.description,
+        category: stage.category,
+        // Photos stay on stage 1 (the trade diagnosing the cause sees them).
+        photos: i === 0 ? input.photos : [],
+        images: i === 0 ? input.images : undefined,
+        captions: i === 0 ? input.captions : undefined,
+        _stage: { project_id: project.id, index: i + 1, label: stage.label },
+      });
+      project.job_ids.push(res.job.id);
+      results.push(res);
+    }
+    this.store.projects.set(project.id, project); // persist job_ids
+
+    const first = results[0]!;
+    return { ...first, project: this.projectView(project) };
+  }
+
+  async createSingleJob(input: CreateJobInput): Promise<CreateJobResult> {
     const now = this.clock();
     const outcome = await this.triageSvc.triage({
       description: input.description,
@@ -112,6 +201,21 @@ export class MarketplaceService {
       status: "DRAFT",
       created_at: now,
     };
+    if (input._stage) {
+      job.project_id = input._stage.project_id;
+      job.stage_index = input._stage.index;
+      job.stage_label = input._stage.label;
+    } else if (input.project_id) {
+      // Customer attached this job to one of their projects.
+      const proj = this.store.projects.get(input.project_id);
+      if (proj && proj.homeowner_id === input.homeowner_id) {
+        proj.job_ids.push(job.id);
+        this.store.projects.set(proj.id, proj);
+        job.project_id = proj.id;
+        job.stage_index = proj.job_ids.length;
+        job.stage_label = result.job_spec?.title ?? input.description.slice(0, 60);
+      }
+    }
     this.store.jobs.set(job.id, job);
 
     const triage: Triage = {
@@ -638,6 +742,98 @@ export class MarketplaceService {
       }
     }
     return review;
+  }
+
+  // ---- concept-stage: projects & certification ----
+
+  /** Customer creates an empty project ("fix the bathroom") to group jobs. */
+  createProject(homeownerId: string, title: string): Project {
+    const t = title.trim();
+    if (!t) throw new Error("Give the project a name");
+    const project: Project = {
+      id: uuidv4(),
+      homeowner_id: homeownerId,
+      title: t,
+      kind: "custom",
+      job_ids: [],
+      created_at: this.clock(),
+    };
+    this.store.projects.set(project.id, project);
+    return project;
+  }
+
+  projectsForHomeowner(homeownerId: string): ProjectView[] {
+    return [...this.store.projects.values()]
+      .filter((p) => p.homeowner_id === homeownerId)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map((p) => this.projectView(p));
+  }
+
+  mustProject(id: string): Project {
+    const p = this.store.projects.get(id);
+    if (!p) throw new Error(`Project ${id} not found`);
+    return p;
+  }
+
+  /** One-flow customer view: sequenced stages, per-stage prices, one total. */
+  projectView(project: Project): ProjectView {
+    const stages = project.job_ids
+      .map((jobId, i) => {
+        const job = this.store.jobs.get(jobId);
+        if (!job) return null;
+        const quote = this.store
+          .quotesForJob(job.id)
+          .find((q) => q.status === "accepted") ??
+          this.store.quotesForJob(job.id).find((q) => q.status === "offered");
+        const triageId = this.store.triageByJob.get(job.id);
+        const triage = triageId ? this.store.triages.get(triageId) : undefined;
+        const needsPrice = job.status === "AWAITING_QUOTE";
+        return {
+          stage_index: job.stage_index ?? i + 1,
+          stage_label: job.stage_label ?? triage?.result.job_spec?.title ?? job.category,
+          job_id: job.id,
+          category: job.category,
+          status: job.status,
+          quote_amount: quote?.amount ?? null,
+          ballpark: needsPrice
+            ? estimateBallpark(job.category, job.urgency, triage?.result.job_spec?.symptoms?.length ?? 0)
+            : null,
+          certificate: job.certificate ?? null,
+          certificate_required: certificateRequirement(job.category)?.name ?? null,
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null)
+      .sort((a, b) => a.stage_index - b.stage_index);
+
+    const priced = stages.filter((st) => st.quote_amount !== null);
+    return {
+      id: project.id,
+      title: project.title,
+      kind: project.kind,
+      created_at: project.created_at,
+      stages,
+      firm_total: priced.reduce((sum, st) => sum + (st.quote_amount ?? 0), 0),
+      all_priced: stages.length > 0 && priced.length === stages.length,
+    };
+  }
+
+  /**
+   * Certification layer: the assigned trade lodges the compliance certificate
+   * for completed regulated work and attaches the reference to the job record.
+   */
+  attachCertificate(args: { booking_id: string; tradie_id: string; reference: string }): Job {
+    const booking = this.mustBooking(args.booking_id);
+    if (booking.tradie_id !== args.tradie_id) throw new Error("This booking isn't yours");
+    if (booking.status !== "completed") throw new Error("Certificates are lodged after completion");
+    const job = this.mustJob(booking.job_id);
+    const requirement = certificateRequirement(job.category);
+    if (!requirement) throw new Error("This work type has no certificate regime (statutory warranties apply)");
+    if (job.certificate) throw new Error("A certificate is already attached to this job");
+    const reference = args.reference.trim();
+    if (!reference) throw new Error("Enter the certificate reference number");
+    job.certificate = { name: requirement.name, reference, lodged_at: this.clock() };
+    this.store.jobs.set(job.id, job);
+    return job;
   }
 
   private transitionJob(job: Job, to: Job["status"]): void {

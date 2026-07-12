@@ -18,6 +18,7 @@ import type {
   Message,
   MessageThread,
   Payment,
+  Project,
   Quote,
   Review,
   TradieProfile,
@@ -32,6 +33,7 @@ export class MemoryStore {
   homeowners: KVMap<string, HomeownerProfile>; // key: user_id
   tradies: KVMap<string, TradieProfile>; // key: user_id
   jobs: KVMap<string, Job>;
+  projects: KVMap<string, Project>;
   triages: KVMap<string, Triage>; // key: triage id
   triageByJob: KVMap<string, string>; // job_id -> triage id
   quotes: KVMap<string, Quote>;
@@ -62,6 +64,7 @@ export class MemoryStore {
     this.homeowners = mk("homeowners");
     this.tradies = mk("tradies");
     this.jobs = mk("jobs");
+    this.projects = mk("projects");
     this.triages = mk("triages");
     this.triageByJob = mk("triage_by_job");
     this.quotes = mk("quotes");

@@ -10,6 +10,7 @@
 import type { Job, Quote, Triage } from "../domain/entities.js";
 import { MemoryStore } from "../store/memoryStore.js";
 import { computeStrengths } from "../domain/ratings.js";
+import { certificateRequirement } from "../domain/certificates.js";
 
 /** Public trust summary for a tradie (safe to show a homeowner). */
 export function tradieSummary(store: MemoryStore, tradieId: string) {
@@ -59,6 +60,10 @@ export function leadView(store: MemoryStore, job: Job, tradieId: string) {
     required_licence_class: triage?.result.required_licence_class ?? null,
     photos: job.photos,
     vision: triage?.vision ?? null,
+    stage_label: job.stage_label ?? null,
+    stage_index: job.stage_index ?? null,
+    certificate: job.certificate ?? null,
+    certificate_required: certificateRequirement(job.category),
     created_at: job.created_at,
     quote_count: quoteCount,
     quote_kind: job.quote_kind ?? null,

@@ -182,6 +182,7 @@ export function createApp(deps: AppDeps) {
       category: b.category,
       images: parseImages(photos),
       captions: Array.isArray(b.captions) ? b.captions.map(String) : undefined,
+      project_id: b.project_id ? String(b.project_id) : undefined,
     });
     res.status(201).json({
       job: result.job,
@@ -192,7 +193,38 @@ export function createApp(deps: AppDeps) {
       quote: result.quote ? quoteView(result.quote, store) : null,
       vision: result.vision,
       ballpark: result.ballpark,
+      project: result.project ?? null,
     });
+  }));
+
+  // ---- concept-stage: customer projects ----
+  api.post("/projects", wrap((req, res) => {
+    const user = requireRole(req, "homeowner");
+    const project = market.createProject(user.id, String(req.body?.title ?? ""));
+    res.status(201).json(market.projectView(project));
+  }));
+
+  api.get("/projects", wrap((req, res) => {
+    const user = requireRole(req, "homeowner");
+    res.json(market.projectsForHomeowner(user.id));
+  }));
+
+  api.get("/projects/:id", wrap((req, res) => {
+    const user = requireRole(req, "homeowner");
+    const project = market.mustProject(param(req, "id"));
+    if (project.homeowner_id !== user.id) throw new HttpError(403, "Not your project");
+    res.json(market.projectView(project));
+  }));
+
+  // ---- concept-stage: certification layer ----
+  api.post("/bookings/:id/certificate", wrap((req, res) => {
+    const user = requireRole(req, "tradie");
+    const job = market.attachCertificate({
+      booking_id: param(req, "id"),
+      tradie_id: user.id,
+      reference: String(req.body?.reference ?? ""),
+    });
+    res.status(201).json(job.certificate);
   }));
 
   // GET /jobs — the homeowner's own jobs (most recent first).

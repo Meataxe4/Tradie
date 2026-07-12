@@ -11,6 +11,7 @@ import type {
   Lead,
   Message,
   MyQuote,
+  ProjectView,
   Quote,
   QuoteDraft,
   QuoteExplanation,
@@ -107,12 +108,16 @@ export const api = {
     description: string;
     photos: string[];
     captions?: string[];
+    project_id?: string;
     suburb: string;
     postcode: string;
     state: string;
     full_address?: string;
   }) => req<CreateJobResponse>("POST", "/jobs", input),
   myJobs: () => req<JobSummary[]>("GET", "/jobs"),
+  projects: () => req<ProjectView[]>("GET", "/projects"),
+  project: (id: string) => req<ProjectView>("GET", `/projects/${id}`),
+  createProject: (title: string) => req<ProjectView>("POST", "/projects", { title }),
   job: (id: string) => req<JobDetail>("GET", `/jobs/${id}`),
   jobQuotes: (id: string) => req<Quote[]>("GET", `/jobs/${id}/quotes`),
   acceptQuote: (id: string) =>
@@ -145,6 +150,8 @@ export const api = {
   suggestReply: (threadId: string) =>
     req<ReplySuggestion>("POST", `/threads/${threadId}/suggest-reply`),
   completeBooking: (id: string) => req<Booking>("POST", `/bookings/${id}/complete`),
+  attachCertificate: (bookingId: string, reference: string) =>
+    req<unknown>("POST", `/bookings/${bookingId}/certificate`, { reference }),
   review: (bookingId: string, overall: number, dimensions: Record<string, number>, text: string) =>
     req<unknown>("POST", `/bookings/${bookingId}/review`, { overall, dimensions, text }),
 

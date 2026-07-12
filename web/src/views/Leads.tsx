@@ -297,6 +297,13 @@ function WonCard({ won, onChange }: { won: WonLead; onChange: () => void }) {
         </div>
       )}
 
+      {won.booking.status === "completed" && won.job?.certificate_required && !won.job?.certificate && (
+        <CertificatePrompt bookingId={won.booking.id} requirement={won.job.certificate_required} onDone={onChange} />
+      )}
+      {won.job?.certificate && (
+        <p className="cert-chip ok" style={{ marginTop: 10 }}>{Icon.shield}{won.job.certificate.name} lodged · ref {won.job.certificate.reference}</p>
+      )}
+
       {won.booking.status === "completed" && !won.reviews.some((r) => r.rater_role === "tradie") && (
         <ReviewForm bookingId={won.booking.id} raterRole="tradie" onDone={onChange} />
       )}
@@ -354,6 +361,36 @@ function ReviewResponse({ review, onChange }: { review: Review; onChange: () => 
       ) : (
         <button className="btn ghost sm" style={{ marginTop: 8 }} onClick={() => setOpen(true)}>Respond to review</button>
       )}
+      {err && <p className="err">{err}</p>}
+    </div>
+  );
+}
+
+
+/** Certification layer: prompt the trade to lodge + attach the compliance cert. */
+function CertificatePrompt({ bookingId, requirement, onDone }: {
+  bookingId: string;
+  requirement: { name: string; window: string };
+  onDone: () => void;
+}) {
+  const [ref, setRef] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const lodge = async () => {
+    if (!ref.trim()) { setErr("Enter the certificate reference."); return; }
+    setBusy(true); setErr("");
+    try { await api.attachCertificate(bookingId, ref.trim()); onDone(); }
+    catch (e) { setErr((e as Error).message); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div className="cert-prompt">
+      <b>{Icon.shield}Lodge your {requirement.name}</b>
+      <span>Required for this work ({requirement.window}). Attach the reference and it's stored on the job record for you and the customer.</span>
+      <div className="row" style={{ gap: 8, marginTop: 10 }}>
+        <input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="Certificate reference, e.g. CCEW-123456" style={{ flex: 1 }} />
+        <button className="btn sm" disabled={busy} onClick={lodge}>{busy ? "Saving…" : "Attach"}</button>
+      </div>
       {err && <p className="err">{err}</p>}
     </div>
   );

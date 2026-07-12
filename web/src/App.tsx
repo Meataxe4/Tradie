@@ -10,6 +10,7 @@ import { JobDetail } from "./views/JobDetail";
 import { Leads } from "./views/Leads";
 import { LeadDetail } from "./views/LeadDetail";
 import { Admin } from "./views/Admin";
+import { ProjectDetail } from "./views/ProjectDetail";
 
 function ThemeToggle() {
   const [theme, setTheme] = useState<"light" | "dark">(
@@ -124,6 +125,7 @@ export function App() {
           <Route path="/new" element={<Guard role="homeowner"><NewJob /></Guard>} />
           <Route path="/jobs" element={<Guard role="homeowner"><Jobs /></Guard>} />
           <Route path="/jobs/:id" element={<Guard role="homeowner"><JobDetail /></Guard>} />
+          <Route path="/projects/:id" element={<Guard role="homeowner"><ProjectDetail /></Guard>} />
           <Route path="/leads" element={<Guard role="tradie"><Leads /></Guard>} />
           <Route path="/leads/:id" element={<Guard role="tradie"><LeadDetail /></Guard>} />
           <Route path="/admin" element={<Guard role="admin"><Admin /></Guard>} />

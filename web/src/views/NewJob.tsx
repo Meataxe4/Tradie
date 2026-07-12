@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import type { CreateJobResponse } from "../types";
 import { Icon, money } from "../ui";
@@ -60,6 +60,8 @@ export function NewJob() {
   const [emergencyAck, setEmergencyAck] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const nav = useNavigate();
+  const [params] = useSearchParams();
+  const projectId = params.get("project") ?? undefined;
 
   useEffect(() => {
     const draft = storage.get("squiz.draft");
@@ -94,6 +96,7 @@ export function NewJob() {
         description: description.trim(),
         photos: photos.map((p) => p.dataUrl),
         captions: photos.map((p) => p.caption),
+        project_id: projectId,
         suburb, postcode, state, full_address: address,
       });
       setResult(res);
@@ -138,7 +141,9 @@ export function NewJob() {
   if (result) {
     const isPro = result.triage.verdict !== "DIY_SAFE";
     const trade = result.triage.recommended_trade.replace("_", " ");
-    const sub = !isPro
+    const sub = result.project
+      ? `We've split this into ${result.project.stages.length} sequenced stages, each with its own vetted trade.`
+      : !isPro
       ? "Good news — this is a safe DIY job, so there's nothing to book."
       : result.quote
         ? `We've assigned ${result.assigned_tradie?.business_name ?? `a vetted ${trade}`} and prepared a firm price from our price book. Review and accept in a tap.`
@@ -162,6 +167,27 @@ export function NewJob() {
                   : `In this preview, triage reads your description${result.vision.captions ? " and photo notes" : ""}; live, our AI also analyses the photos themselves.`}
               </span>
             </div>
+          </div>
+        )}
+
+        {result.project && (
+          <div className="card" style={{ borderColor: "var(--accent)" }}>
+            <h3>{Icon.tools}One problem, {result.project.stages.length} trades — we've sorted the order</h3>
+            <p className="notice" style={{ marginBottom: 12 }}>
+              This needs more than one trade, so we've split it into sequenced stages. Each stage gets its own
+              vetted trade and firm price — you book them in order, all in one place.
+            </p>
+            {result.project.stages.map((s) => (
+              <div className="q-row" key={s.job_id}>
+                <div>
+                  <b>Stage {s.stage_index} · {s.stage_label}</b>
+                  <span>{s.quote_amount !== null ? `Firm price ${money(s.quote_amount)}` : s.ballpark ? `Indicative ~${money(s.ballpark.low)}–${money(s.ballpark.high)}` : "Pricing shortly"}</span>
+                </div>
+              </div>
+            ))}
+            <Link className="btn" style={{ marginTop: 12, display: "inline-block" }} to={`/projects/${result.project.id}`}>
+              View your project →
+            </Link>
           </div>
         )}
 

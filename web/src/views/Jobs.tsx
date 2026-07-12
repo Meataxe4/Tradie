@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
-import type { JobSummary } from "../types";
-import { CATEGORY_META, Icon, Spinner, statusLabel } from "../ui";
+import type { JobSummary, ProjectView } from "../types";
+import { CATEGORY_META, Icon, Spinner, money, statusLabel } from "../ui";
 import { timeAgo } from "../parts";
 
 const VERDICT_LABEL: Record<string, { text: string; tone: string; bg: string }> = {
@@ -14,11 +14,24 @@ const VERDICT_LABEL: Record<string, { text: string; tone: string; bg: string }> 
 
 export function Jobs() {
   const [jobs, setJobs] = useState<JobSummary[] | null>(null);
+  const [projects, setProjects] = useState<ProjectView[]>([]);
+  const [newProj, setNewProj] = useState("");
+  const [creating, setCreating] = useState(false);
   const [err, setErr] = useState("");
 
-  useEffect(() => {
+  const load = () => {
     api.myJobs().then(setJobs).catch((e) => setErr(e.message));
-  }, []);
+    api.projects().then(setProjects).catch(() => {});
+  };
+  useEffect(load, []);
+
+  const addProject = async () => {
+    if (!newProj.trim()) return;
+    setCreating(true);
+    try { await api.createProject(newProj.trim()); setNewProj(""); load(); }
+    catch (e) { setErr((e as Error).message); }
+    finally { setCreating(false); }
+  };
 
   if (err) return <p className="err">{err}</p>;
   if (!jobs) return <Spinner />;
@@ -31,6 +44,22 @@ export function Jobs() {
           <h1 className="page-title" style={{ margin: 0 }}>My jobs</h1>
         </div>
         <Link className="btn sm" to="/new">+ New job</Link>
+      </div>
+
+      {/* Concept-stage: customer projects — group jobs, indicative pricing, home logbook. */}
+      <div className="proj-strip">
+        {projects.map((pr) => (
+          <Link className="proj-card" to={`/projects/${pr.id}`} key={pr.id}>
+            <b>{pr.title}</b>
+            <span>{pr.stages.length} job{pr.stages.length === 1 ? "" : "s"}{pr.firm_total > 0 ? ` · ${money(pr.firm_total)}${pr.all_priced ? "" : " so far"}` : ""}</span>
+          </Link>
+        ))}
+        <div className="proj-new">
+          <input value={newProj} onChange={(e) => setNewProj(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") addProject(); }}
+            placeholder='Start a project, e.g. "Fix the bathroom"' />
+          <button className="btn ghost sm" disabled={creating} onClick={addProject}>{creating ? "…" : "Create"}</button>
+        </div>
       </div>
 
       {jobs.length === 0 && (

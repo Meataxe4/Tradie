@@ -117,6 +117,10 @@ export interface JobDetail extends JobSummary {
   reviews: Review[];
   assigned_tradie?: TradieSummary | null;
   ballpark?: { low: number; high: number } | null;
+  project_id?: string;
+  stage_index?: number;
+  stage_label?: string;
+  certificate?: JobCertificate | null;
 }
 
 export interface VisionSummary {
@@ -124,6 +128,34 @@ export interface VisionSummary {
   captions: number;
   analyzed: boolean;
   mode: "live" | "preview" | "none";
+}
+
+export interface JobCertificate {
+  name: string;
+  reference: string;
+  lodged_at: string;
+}
+
+export interface ProjectStage {
+  stage_index: number;
+  stage_label: string;
+  job_id: string;
+  category: string;
+  status: string;
+  quote_amount: number | null;
+  ballpark: { low: number; high: number } | null;
+  certificate: JobCertificate | null;
+  certificate_required: string | null;
+}
+
+export interface ProjectView {
+  id: string;
+  title: string;
+  kind: "multi_trade" | "custom";
+  created_at: string;
+  stages: ProjectStage[];
+  firm_total: number;
+  all_priced: boolean;
 }
 
 export interface CreateJobResponse {
@@ -135,6 +167,7 @@ export interface CreateJobResponse {
   quote: Quote | null;
   vision: VisionSummary;
   ballpark: { low: number; high: number } | null;
+  project: ProjectView | null;
 }
 
 export interface TradieSummary {
@@ -224,6 +257,10 @@ export interface Lead {
   required_licence_class: string | null;
   photos: string[];
   vision?: VisionSummary | null;
+  stage_label?: string | null;
+  stage_index?: number | null;
+  certificate?: JobCertificate | null;
+  certificate_required?: { name: string; window: string } | null;
   created_at: string;
   quote_count: number;
   quote_kind: "price_book" | "custom" | null;
