@@ -21,11 +21,20 @@ export interface User {
   status: "active" | "suspended";
 }
 
+/** Ask-once (M2.5): what the customer told us about their place, kept forever. */
+export interface PropertyProfile {
+  /** Build era — pre-1990 is an asbestos-era safety signal fed to triage. */
+  build_era?: "pre-1950" | "1950-1990" | "post-1990" | "unknown";
+  dwelling?: "house" | "apartment" | "townhouse" | "other";
+}
+
 export interface HomeownerProfile {
   user_id: string;
   default_address?: string;
   suburb?: string;
   postcode?: string;
+  state?: AustralianState;
+  property?: PropertyProfile;
   /** Rating the customer has received from trades (§4 two-way). */
   rating_avg?: number;
   ratings_count?: number;

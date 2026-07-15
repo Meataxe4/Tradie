@@ -30,6 +30,8 @@ export interface TriageInput {
   images?: TriageImage[];
   /** Homeowner's short note per photo ("what does this show?"). Always analysed. */
   captions?: string[];
+  /** Ask-once profile context, e.g. "house built pre-1990" (asbestos era). */
+  property_context?: string;
 }
 
 export interface TriageLlmClient {
@@ -48,7 +50,7 @@ export interface TriageLlmClient {
  * a vision-capable client additionally sees the pixels.
  */
 export function triageText(input: TriageInput): string {
-  return [input.description, ...(input.captions ?? [])]
+  return [input.description, ...(input.captions ?? []), input.property_context ?? ""]
     .filter((s) => s && s.trim())
     .join(". ");
 }
@@ -236,6 +238,30 @@ export class MockTriageClient implements TriageLlmClient {
           "Please don't disturb, sand, drill or break this material. It may contain " +
           "asbestos and needs a licensed removalist. I've written up the details so " +
           "you'll get accurate private quotes shortly.",
+        photoCount: input.photoCount,
+      });
+    }
+
+    // --- PRO: asbestos-era property + work disturbing the building fabric ---
+    // Ask-once property context can only ESCALATE (the gate still applies after).
+    if (has("built pre-1990", "built pre-1950") &&
+        has("drill", "sand", "cut into", "grind", "demolish", "remove the wall", "remove a wall", "renovat")) {
+      return needsPro({
+        category: "structural",
+        regulated_domains: ["none"],
+        safety_flags: ["asbestos_suspected"],
+        recommended_trade: "builder",
+        licence: "Licensed asbestos removalist",
+        why:
+          "This home is from the asbestos era and the work disturbs the building fabric — " +
+          "materials must be checked before anyone drills, sands or cuts.",
+        title: "Asbestos-era home — check before disturbing",
+        summary: "Work disturbing wall/ceiling materials in a pre-1990 home; asbestos check required first.",
+        symptoms: ["Planned work disturbs building materials in an asbestos-era home"],
+        questions: ["Has the material ever been tested for asbestos?"],
+        userMessage:
+          "Because your home is from the asbestos era, please don't drill, sand or cut this material " +
+          "until it's been checked. I've routed this to a licensed professional.",
         photoCount: input.photoCount,
       });
     }

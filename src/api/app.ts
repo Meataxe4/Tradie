@@ -162,6 +162,16 @@ export function createApp(deps: AppDeps) {
     });
   }));
 
+  // PATCH /me/profile — ask-once (M2.5): update place details, never re-asked.
+  api.patch("/me/profile", wrap((req, res) => {
+    const user = requireRole(req, "homeowner");
+    const b = req.body ?? {};
+    res.json(market.updateHomeownerProfile(user.id, {
+      suburb: b.suburb, postcode: b.postcode, state: b.state,
+      default_address: b.default_address, property: b.property,
+    }));
+  }));
+
   // ---- Homeowner ----
   // POST /jobs — create job (description, photos, location) → triggers triage.
   api.post("/jobs", wrap(async (req, res) => {
