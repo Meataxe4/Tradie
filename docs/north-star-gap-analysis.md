@@ -89,5 +89,6 @@ and Phil settle it explicitly.
 - **M4 (Pilot)** unchanged; add the North-Star KPIs (G4) to the dashboard
   before pilot start so the success metric is measured from day one.
 
-*Nothing above is actioned — all of it awaits Blake + Phil in the Decisions
-Log / Milestones tab.*
+*Update 15 Jul 2026: D7 (adopt this plan into the milestones) APPROVED by
+Blake; Phil's countersignature pending in the Decisions Log. M2.5 (Profiles &
+ask-once) started first — no dependencies.*
