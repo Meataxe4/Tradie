@@ -113,3 +113,36 @@ describe("pre-visit ballpark", () => {
     expect(created.vision.photos).toBe(1);
   });
 });
+
+describe("ask-once property profile (M2.5)", () => {
+  it("asbestos-era property context ESCALATES work disturbing the fabric", async () => {
+    const store = new MemoryStore();
+    seed(store, NOW);
+    const market = new MarketplaceService(store, svc(), () => NOW);
+    market.updateHomeownerProfile("home-1", { property: { build_era: "1950-1990", dwelling: "house" } });
+    const res = await market.createSingleJob({
+      homeowner_id: "home-1",
+      description: "I want to sand back and repaint the hallway wall",
+      photos: [], suburb: "Newtown", postcode: "2042", state: "NSW",
+    });
+    expect(res.triage.result.safety_flags).toContain("asbestos_suspected");
+    // The gate escalates any active safety flag to EMERGENCY_STOP — the
+    // conservative option wins (same as the explicit-asbestos pattern).
+    expect(res.triage.final_verdict).toBe("EMERGENCY_STOP");
+  });
+
+  it("createJob remembers the location so it's never asked again", async () => {
+    const store = new MemoryStore();
+    seed(store, NOW);
+    const market = new MarketplaceService(store, svc(), () => NOW);
+    await market.createJob({
+      homeowner_id: "home-1",
+      description: "The oven has stopped heating up properly",
+      photos: [], suburb: "Enmore", postcode: "2042", state: "NSW",
+      full_address: "5 Test Ln, Enmore NSW 2042",
+    });
+    const owner = store.homeowners.get("home-1")!;
+    expect(owner.suburb).toBe("Enmore");
+    expect(owner.default_address).toBe("5 Test Ln, Enmore NSW 2042");
+  });
+});

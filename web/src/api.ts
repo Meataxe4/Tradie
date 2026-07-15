@@ -2,6 +2,8 @@
 // header. Token + identity are cached in localStorage.
 import type {
   AdminOverview,
+  HomeProfile,
+  Role,
   AuthResult,
   Booking,
   CreateJobResponse,
@@ -102,6 +104,10 @@ export const api = {
   login: (email: string, password: string) => req<AuthResult>("POST", "/auth/login", { email, password }),
   demoLogin: (id: string) => req<AuthResult>("POST", `/auth/demo/${id}`),
   identities: () => req<Identity[]>("GET", "/demo/identities"),
+
+  // ask-once (M2.5)
+  me: () => req<{ id: string; role: Role; name: string | null; profile: HomeProfile | null }>("GET", "/me"),
+  updateProfile: (patch: Partial<HomeProfile>) => req<HomeProfile>("PATCH", "/me/profile", patch),
 
   // homeowner
   createJob: (input: {

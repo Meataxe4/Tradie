@@ -51,6 +51,8 @@ function classify(desc: string): AnyMap {
     return { verdict: "NEEDS_LICENSED_PRO", category: "plumbing_water", regulated_domains: ["plumbing_water"], safety_flags: ["none"], recommended_trade: "plumber", required_licence_class: "Plumbing contractor licence", diy_guidance: null, why_pro_needed: "Water-connected plumbing is licensed work — it needs a licensed plumber.", job_spec: spec("Tap / toilet plumbing", "A water-connected fixture needs a licensed plumber.", ["Fixture not working correctly"], [], "routine"), user_message: "This needs a licensed plumber. Here's your firm price.", ...base };
   if (has("oven", "dishwasher", "washing machine", "clothes dryer", "rangehood", "range hood", "electric cooktop"))
     return { verdict: "NEEDS_LICENSED_PRO", category: "appliance", regulated_domains: ["none"], safety_flags: ["none"], recommended_trade: "handyman", required_licence_class: null, diy_guidance: null, why_pro_needed: "A fixed appliance repair — best handled by a qualified appliance technician.", job_spec: spec("Appliance repair", "A household appliance has stopped working correctly.", ["Appliance not operating as expected"], ["What's the make and model?"], "routine"), user_message: "This looks like an appliance repair.", ...base };
+  if (has("built pre-1990", "built pre-1950") && has("drill", "sand", "cut into", "grind", "demolish", "remove the wall", "remove a wall", "renovat"))
+    return { verdict: "NEEDS_LICENSED_PRO", category: "structural", regulated_domains: ["none"], safety_flags: ["asbestos_suspected"], recommended_trade: "builder", required_licence_class: "Licensed asbestos removalist", diy_guidance: null, why_pro_needed: "This home is from the asbestos era and the work disturbs the building fabric — materials must be checked before anyone drills, sands or cuts.", job_spec: spec("Asbestos-era home — check before disturbing", "Work disturbing wall/ceiling materials in a pre-1990 home; asbestos check required first.", ["Planned work disturbs materials in an asbestos-era home"], ["Has the material ever been tested for asbestos?"], "urgent"), user_message: "Because your home is from the asbestos era, please don't drill, sand or cut this material until it's been checked. I've routed this to a licensed professional.", ...base };
   if (has("plasterboard", "ceiling repair", "repair the ceiling", "gyprock"))
     return { verdict: "NEEDS_LICENSED_PRO", category: "carpentry", regulated_domains: ["none"], safety_flags: ["none"], recommended_trade: "builder", required_licence_class: null, diy_guidance: null, why_pro_needed: "Ceiling sheeting needs a qualified carpenter to replace and finish safely.", job_spec: spec("Plasterboard ceiling repair", "A damaged plasterboard ceiling section needs replacing by a carpenter.", ["Damaged or water-affected plasterboard"], ["Roughly how large is the damaged section?"], "routine"), user_message: "This is a carpentry repair. You'll get a firm quote shortly.", ...base };
   if (has("repaint", "patch, sand", "patch and paint", "paint the ceiling"))
@@ -296,10 +298,14 @@ function createJob(input: AnyMap) {
   return createSingleJobMock(input);
 }
 function createSingleJobMock(input: AnyMap) {
+  // Ask-once: property context is a triage-safety signal; location is remembered.
+  const ownerProfile = db.homeowners.get(input.homeowner_id);
+  const era = ownerProfile?.property?.build_era;
+  const propCtx = era && era !== "unknown" ? `Property: ${ownerProfile?.property?.dwelling ?? "home"} built ${era === "post-1990" ? "post-1990" : "pre-1990"}` : "";
   // Photo captions are real text signal — fold them into what triage reads
   // (mirrors triageText on the backend), so a caption describing a hazard escalates.
   const captions: string[] = (input.captions ?? []).filter((c: any) => c && String(c).trim());
-  const text = [input.description, ...captions].filter((x) => x && String(x).trim()).join(". ");
+  const text = [input.description, ...captions, propCtx].filter((x) => x && String(x).trim()).join(". ");
   const model = classify(text); const triageId = uid();
   const { result, overrides, model_verdict } = gate(triageId, model);
   const at = input._at ?? nowIso();
@@ -321,6 +327,7 @@ function createSingleJobMock(input: AnyMap) {
     if (assigned && pb) { job.quote_kind = "price_book"; job.price_book_key = pb.key; quote = createFirmQuote(job, assigned.user_id, "price_book", pb.amount, pb.label, at); job.status = "QUOTED"; }
     else { job.quote_kind = "custom"; job.status = "AWAITING_QUOTE"; }
   }
+  if (ownerProfile) { ownerProfile.suburb = input.suburb; ownerProfile.postcode = input.postcode; ownerProfile.state = input.state; if (input.full_address) ownerProfile.default_address = input.full_address; }
   const ballpark = job.status === "AWAITING_QUOTE" ? qBallpark(job.category, job.urgency, result.job_spec?.symptoms?.length ?? 0) : null;
   return { job, triage: result, overrides, model_verdict, assigned, quote, vision, ballpark };
 }
@@ -389,7 +396,13 @@ export function handleRequest(method: string, path: string, body: any, authHeade
     if (method === "POST" && seg[0] === "auth" && seg[1] === "login") return doLogin(body);
     if (method === "POST" && seg[0] === "auth" && seg[1] === "demo") { const u = db.users.get(seg[2]!); if (!u || !db.demoIds.has(seg[2]!)) return err(404, "Unknown demo account"); return ok(authResult(u)); }
     if (method === "GET" && seg[0] === "demo" && seg[1] === "identities") return ok([...db.demoIds].map((id) => db.users.get(id)).filter(Boolean).map((u) => ({ id: u.id, role: u.role, label: db.names.get(u.id) ?? u.email })));
-    if (method === "GET" && seg[0] === "me" && seg.length === 1) { const u = need("homeowner", "tradie", "admin"); return ok({ id: u.sub, role: u.role, name: u.name }); }
+    if (method === "GET" && seg[0] === "me" && seg.length === 1) { const u = need("homeowner", "tradie", "admin"); return ok({ id: u.sub, role: u.role, name: u.name, profile: (u.role === "homeowner" ? db.homeowners.get(u.sub) : db.tradies.get(u.sub)) ?? null }); }
+    if (method === "PATCH" && seg[0] === "me" && seg[1] === "profile") {
+      const u = need("homeowner"); const o = db.homeowners.get(u.sub); if (!o) return err(404, "Profile not found");
+      for (const k of ["suburb", "postcode", "state", "default_address"]) if (body?.[k] !== undefined) o[k] = body[k];
+      if (body?.property !== undefined) o.property = { ...o.property, ...body.property };
+      return ok(o);
+    }
 
     // admin ops dashboard
     if (method === "GET" && seg[0] === "admin" && seg[1] === "overview") {
