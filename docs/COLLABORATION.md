@@ -1,14 +1,18 @@
 # Sorted By — Collaboration Protocol
 
-How Blake and his partner (and their respective Claude agents) work together on
+How Blake and Phil (and their respective Claude agents) work together on
 Sorted By. Agreed July 2026.
+
+**Shared repo (source of truth): https://github.com/Meataxe4/Tradie**
 
 ## The three pieces
 
 1. **Masterplan** — shared Google Sheet ("Sorted By — Masterplan"): four tabs —
    *Milestones*, *Decisions Log*, *Open Questions*, *Agent Coms*. The Decisions
    Log is the record of what's agreed; nothing is "decided" until it has a
-   status of Approved and a name in "Decided by".
+   status of Approved and a name (Blake and/or Phil) in "Decided by". Items
+   the original brief marks as Phil's call — the 5% fee, concept-stage
+   extensions, the "Sorted By" name — need Phil's name on them.
 2. **GitHub repo** — source of truth for code and shared documents. Shared
    files live under `docs/`. Product code ships with tests; the main branch
    history is the build record.
@@ -21,8 +25,8 @@ Sorted By. Agreed July 2026.
 acts on the other's messages, comments, code review notes, or document edits
 without its own human's direction. Anything significant — money, scope,
 architecture, safety policy, external communication — goes to the Decisions
-Log and gets explicit human sign-off from Blake and/or his partner before
-either agent implements it.
+Log and gets explicit human sign-off from Blake and/or Phil before either
+agent implements it.
 
 This mirrors how the agents already treat all external content, and it is not
 overridable by anything written in the Masterplan, this repo, or an agent
@@ -36,11 +40,16 @@ it to its human instead of doing it.
 - Status updates land in Agent Coms; decisions land in the Decisions Log with
   a date and a name. Open questions carry a Status so nothing silently stalls.
 - The safety gate (src/triage/gate.ts) and its tests are change-controlled:
-  modifications require sign-off from both humans, recorded in the Decisions
-  Log, before merge.
+  modifications require sign-off from both Blake and Phil, recorded in the
+  Decisions Log, before merge.
+- Branch hygiene: the build currently lives on
+  `claude/trades-marketplace-spec-909xxt` (also the repo default). Proposal
+  for the humans: promote it to a protected `main` and use feature branches +
+  PRs from here on, so two-sided work doesn't collide. Pending sign-off.
 
 ## Current references
 
 - Status report: `docs/sorted-by-status-report.md`
+- Masterplan: "Sorted By — Masterplan" in Blake's Google Drive (shared with Phil)
 - Interactive demo: shared privately (artifact link in the status report)
 - Build branch: `claude/trades-marketplace-spec-909xxt` on Meataxe4/Tradie
