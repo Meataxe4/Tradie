@@ -32,6 +32,7 @@ import { certificateRequirement } from "../domain/certificates.js";
 import type {
   AustralianState,
   Booking,
+  HomeownerProfile,
   Job,
   Message,
   MessageSenderRole,
@@ -177,9 +178,18 @@ export class MarketplaceService {
     return { ...first, project: this.projectView(project) };
   }
 
+  /** Ask-once (M2.5): the profile's property details become a triage-safety signal. */
+  private propertyContext(homeownerId: string): string | undefined {
+    const prop = this.store.homeowners.get(homeownerId)?.property;
+    if (!prop?.build_era || prop.build_era === "unknown") return undefined;
+    const era = prop.build_era === "post-1990" ? "post-1990" : `pre-1990 (${prop.build_era})`;
+    return `Property: ${prop.dwelling ?? "home"} built ${era.startsWith("pre") ? "pre-1990" : "post-1990"}`;
+  }
+
   async createSingleJob(input: CreateJobInput): Promise<CreateJobResult> {
     const now = this.clock();
     const outcome = await this.triageSvc.triage({
+      property_context: this.propertyContext(input.homeowner_id),
       description: input.description,
       photoCount: input.photos.length,
       suburb: input.suburb,
@@ -278,7 +288,33 @@ export class MarketplaceService {
         ? estimateBallpark(job.category, job.urgency, result.job_spec?.symptoms?.length ?? 0)
         : null;
 
+    // Ask-once: remember where they are so we never ask again.
+    const owner = this.store.homeowners.get(input.homeowner_id);
+    if (owner) {
+      owner.suburb = input.suburb;
+      owner.postcode = input.postcode;
+      owner.state = input.state;
+      if (input.full_address) owner.default_address = input.full_address;
+      this.store.homeowners.set(owner.user_id, owner);
+    }
+
     return { job, triage, assigned, quote, vision: outcome.vision, ballpark };
+  }
+
+  /** Ask-once: the customer updates their place details once, kept forever. */
+  updateHomeownerProfile(homeownerId: string, patch: {
+    suburb?: string; postcode?: string; state?: AustralianState;
+    default_address?: string; property?: HomeownerProfile["property"];
+  }): HomeownerProfile {
+    const owner = this.store.homeowners.get(homeownerId);
+    if (!owner) throw new Error("Profile not found");
+    if (patch.suburb !== undefined) owner.suburb = patch.suburb;
+    if (patch.postcode !== undefined) owner.postcode = patch.postcode;
+    if (patch.state !== undefined) owner.state = patch.state;
+    if (patch.default_address !== undefined) owner.default_address = patch.default_address;
+    if (patch.property !== undefined) owner.property = { ...owner.property, ...patch.property };
+    this.store.homeowners.set(owner.user_id, owner);
+    return owner;
   }
 
   /** Create the single firm quote for a job (price-book or custom) + its thread. */

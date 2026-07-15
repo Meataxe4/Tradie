@@ -66,9 +66,22 @@ export function NewJob() {
   const preferId = params.get("prefer") ?? undefined;
   const preferName = params.get("name") ?? undefined;
 
+  const [buildEra, setBuildEra] = useState("");
+  const [knowsPlace, setKnowsPlace] = useState(true); // hidden until profile loads
+
   useEffect(() => {
     const draft = storage.get("squiz.draft");
     if (draft) { setDescription(draft); storage.remove("squiz.draft"); }
+    // Ask-once (M2.5): prefill everything the profile already knows.
+    api.me().then((me) => {
+      const p = me.profile;
+      if (!p) return;
+      if (p.suburb) setSuburb(p.suburb);
+      if (p.postcode) setPostcode(p.postcode);
+      if (p.state) setState(p.state);
+      if (p.default_address) setAddress(p.default_address);
+      setKnowsPlace(Boolean(p.property?.build_era));
+    }).catch(() => {});
   }, []);
 
   const addFiles = async (files: FileList | null) => {
@@ -95,6 +108,10 @@ export function NewJob() {
   const submit = async () => {
     setBusy(true); setErr("");
     try {
+      // Ask-once: store the place details the moment they tell us.
+      if (!knowsPlace && buildEra) {
+        await api.updateProfile({ property: { build_era: buildEra } }).catch(() => {});
+      }
       const res = await api.createJob({
         description: description.trim(),
         photos: photos.map((p) => p.dataUrl),
@@ -280,6 +297,22 @@ export function NewJob() {
         <div>
           <h1 className="page-title">Where's the job?</h1>
           <p className="page-sub">We only show tradies your suburb until you book. Your full address is revealed to the tradie you choose — nobody else.</p>
+          {!knowsPlace && (
+            <div className="card">
+              <label className="field" style={{ marginBottom: 0 }}>
+                <span className="lbl">Roughly when was your place built? (asked once — helps us keep you safe)</span>
+                <select value={buildEra} onChange={(e) => setBuildEra(e.target.value)}>
+                  <option value="">Not sure</option>
+                  <option value="pre-1950">Before 1950</option>
+                  <option value="1950-1990">1950–1990</option>
+                  <option value="post-1990">After 1990</option>
+                </select>
+              </label>
+              <p style={{ fontSize: 12, color: "var(--muted)", margin: "8px 0 0" }}>
+                Homes built before 1990 can contain asbestos — knowing this helps our concierge route risky work safely.
+              </p>
+            </div>
+          )}
           <div className="card">
             <div className="grid two">
               <label className="field"><span className="lbl">Suburb</span>

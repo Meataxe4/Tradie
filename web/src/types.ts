@@ -123,6 +123,15 @@ export interface JobDetail extends JobSummary {
   certificate?: JobCertificate | null;
 }
 
+export interface HomeProfile {
+  user_id?: string;
+  suburb?: string;
+  postcode?: string;
+  state?: string;
+  default_address?: string;
+  property?: { build_era?: string; dwelling?: string };
+}
+
 export interface VisionSummary {
   photos: number;
   captions: number;
