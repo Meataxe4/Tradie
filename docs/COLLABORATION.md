@@ -51,7 +51,10 @@ it to its human instead of doing it.
 ## Current references
 
 - Status report: `docs/sorted-by-status-report.md`
-- Masterplan: "Sorted By — Masterplan" in Blake's Google Drive (shared with Phil)
+- Masterplan: the "Masterplan" folder in Blake's Google Drive
+  (drive.google.com/drive/folders/1ggus_zhwMydqSoI2OMaj-wWB-p9b-0ix, shared
+  with Phil). Live sheet = "Sorted By — Masterplan v2" once converted; all
+  agent-produced Masterplan files land in this folder.
 - Interactive demo: shared privately (artifact link in the status report)
 - Trunk: `main` on Meataxe4/Tradie (original build history retained on
   `claude/trades-marketplace-spec-909xxt`)
