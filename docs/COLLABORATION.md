@@ -42,14 +42,16 @@ it to its human instead of doing it.
 - The safety gate (src/triage/gate.ts) and its tests are change-controlled:
   modifications require sign-off from both Blake and Phil, recorded in the
   Decisions Log, before merge.
-- Branch hygiene: the build currently lives on
-  `claude/trades-marketplace-spec-909xxt` (also the repo default). Proposal
-  for the humans: promote it to a protected `main` and use feature branches +
-  PRs from here on, so two-sided work doesn't collide. Pending sign-off.
+- Branch hygiene (ADOPTED, Blake, 2026-07-15): `main` is the trunk — it was
+  created from the final tip of the build branch
+  (`claude/trades-marketplace-spec-909xxt`, now retired/read-only history).
+  All new work goes on feature branches merged into `main` via pull request,
+  so two-sided work never collides and every change has a reviewable diff.
 
 ## Current references
 
 - Status report: `docs/sorted-by-status-report.md`
 - Masterplan: "Sorted By — Masterplan" in Blake's Google Drive (shared with Phil)
 - Interactive demo: shared privately (artifact link in the status report)
-- Build branch: `claude/trades-marketplace-spec-909xxt` on Meataxe4/Tradie
+- Trunk: `main` on Meataxe4/Tradie (original build history retained on
+  `claude/trades-marketplace-spec-909xxt`)
