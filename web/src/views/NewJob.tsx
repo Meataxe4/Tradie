@@ -58,7 +58,8 @@ export function NewJob() {
   const [result, setResult] = useState<CreateJobResponse | null>(null);
   // UX #4: an emergency verdict takes over the whole screen until dismissed.
   const [emergencyAck, setEmergencyAck] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
   const nav = useNavigate();
   const [params] = useSearchParams();
   const projectId = params.get("project") ?? undefined;
@@ -99,7 +100,8 @@ export function NewJob() {
     } catch (e) {
       setErr((e as Error).message);
     }
-    if (fileRef.current) fileRef.current.value = "";
+    if (cameraRef.current) cameraRef.current.value = "";
+    if (galleryRef.current) galleryRef.current.value = "";
   };
   const setCaption = (id: string, caption: string) =>
     setPhotos((p) => p.map((x) => (x.id === id ? { ...x, caption } : x)));
@@ -161,9 +163,12 @@ export function NewJob() {
   // ---- result screen ----
   if (result) {
     const isPro = result.triage.verdict !== "DIY_SAFE";
-    const trade = result.triage.recommended_trade.replace("_", " ");
+    const rec = result.triage.recommended_trade;
+    const trade = !rec || rec === "none" ? "tradie" : rec.replace("_", " ");
     const sub = result.project
       ? `We've split this into ${result.project.stages.length} sequenced stages, each with its own vetted trade.`
+      : result.triage.verdict === "UNCLEAR"
+      ? "We need a little more detail before we can route this safely — the questions below tell us exactly what to check."
       : !isPro
       ? "Good news — this is a safe DIY job, so there's nothing to book."
       : result.quote
@@ -277,11 +282,18 @@ export function NewJob() {
             )}
             {photos.length < 3 && (
               <>
-                <input ref={fileRef} type="file" accept="image/*" multiple capture="environment"
+                <input ref={cameraRef} type="file" accept="image/*" capture="environment"
                   style={{ display: "none" }} onChange={(e) => addFiles(e.target.files)} />
-                <button type="button" className="btn ghost sm" onClick={() => fileRef.current?.click()}>
-                  <span style={{ width: 13, height: 13, display: "inline-flex", marginRight: 4 }}>{Icon.camera}</span> Add photo
-                </button>
+                <input ref={galleryRef} type="file" accept="image/*" multiple
+                  style={{ display: "none" }} onChange={(e) => addFiles(e.target.files)} />
+                <div className="row wrap" style={{ gap: 8 }}>
+                  <button type="button" className="btn ghost sm" onClick={() => cameraRef.current?.click()}>
+                    <span style={{ width: 13, height: 13, display: "inline-flex", marginRight: 4 }}>{Icon.camera}</span> Take a photo
+                  </button>
+                  <button type="button" className="btn ghost sm" onClick={() => galleryRef.current?.click()}>
+                    Choose from your photos
+                  </button>
+                </div>
               </>
             )}
             <p style={{ fontSize: 12, color: "var(--muted)", margin: "10px 0 0" }}>

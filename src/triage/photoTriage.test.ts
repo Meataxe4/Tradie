@@ -146,3 +146,17 @@ describe("ask-once property profile (M2.5)", () => {
     expect(owner.default_address).toBe("5 Test Ln, Enmore NSW 2042");
   });
 });
+
+describe("QA regressions from partner review", () => {
+  // Phil, 22 Jul: "water leaking under kitchen sink" fell through to
+  // UNCLEAR/"other" and the UI offered "a vetted local none".
+  it("'water leaking under kitchen sink' routes to a licensed plumber", async () => {
+    const out = await svc().triage({
+      description: "water leaking under kitchen sink",
+      photoCount: 0,
+    });
+    expect(out.gate.triage.verdict).toBe("NEEDS_LICENSED_PRO");
+    expect(out.gate.triage.category).toBe("plumbing_water");
+    expect(out.gate.triage.recommended_trade).toBe("plumber");
+  });
+});
