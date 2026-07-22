@@ -182,7 +182,7 @@ export class MockTriageClient implements TriageLlmClient {
     }
 
     // --- PRO: burst / leaking water pipe, tap/mixer, cistern, hot water ---
-    if (has("burst pipe", "leaking pipe", "pipe leak", "ceiling leak", "leaking through the ceiling", "leak in the ceiling", "water stain on the ceiling", "tap replace", "mixer", "cistern", "hot water system", "no hot water", "blocked drain machine")) {
+    if (has("burst pipe", "leaking pipe", "pipe leak", "ceiling leak", "leaking through the ceiling", "leak in the ceiling", "water stain on the ceiling", "tap replace", "mixer", "cistern", "hot water system", "no hot water", "blocked drain machine", "water leak", "water leaking", "leak under", "leaking under", "sink is leaking", "leaking sink", "water under the sink")) {
       return needsPro({
         category: "plumbing_water",
         regulated_domains: ["plumbing_water"],
