@@ -11,6 +11,7 @@ import { Leads } from "./views/Leads";
 import { LeadDetail } from "./views/LeadDetail";
 import { Admin } from "./views/Admin";
 import { ProjectDetail } from "./views/ProjectDetail";
+import { HowItWorks } from "./views/HowItWorks";
 
 function ThemeToggle() {
   const [theme, setTheme] = useState<"light" | "dark">(
@@ -122,6 +123,7 @@ export function App() {
       <main className="main">
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/how" element={<HowItWorks />} />
           <Route path="/new" element={<Guard role="homeowner"><NewJob /></Guard>} />
           <Route path="/jobs" element={<Guard role="homeowner"><Jobs /></Guard>} />
           <Route path="/jobs/:id" element={<Guard role="homeowner"><JobDetail /></Guard>} />

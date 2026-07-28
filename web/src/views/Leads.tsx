@@ -198,7 +198,9 @@ export function Leads() {
                   {l.status === "AWAITING_QUOTE"
                     ? "Assigned to you — send a firm quote"
                     : l.status === "QUOTED"
-                      ? "Quoted — waiting on the customer"
+                      ? l.my_quote?.viewed_at
+                        ? `Seen by the customer ${timeAgo(l.my_quote.viewed_at)} — a good time to say g'day in chat`
+                        : "Quoted — waiting on the customer"
                       : l.status === "BOOKED"
                         ? "Booked"
                         : "Assigned to you"}

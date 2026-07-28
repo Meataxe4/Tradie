@@ -11,6 +11,13 @@ const HOW = [
   { n: 2, h: "Get one firm quote", p: "A genuinely safe fix is walked through step by step. Otherwise you get one firm, GST-inclusive price from a vetted local trade — no bidding wars, no chasing quotes." },
   { n: 3, h: "Accept in a tap, pay when it's done", p: "Booking holds your payment securely. The trade arrives knowing the scope, and money is only charged once the job's complete." },
 ];
+// Pilot preview quotes — clearly labelled as samples until real pilot reviews
+// replace them. Do NOT present these as genuine customer reviews.
+const SAMPLE_QUOTES = [
+  { q: "Described the leak, had a firm price before the kettle boiled. Didn't chase a single quote.", who: "Homeowner — what the pilot is built to feel like" },
+  { q: "The job turned up already specced — photos, scope, access notes. I quoted from the ute in two minutes.", who: "Tradie — what the pilot is built to feel like" },
+  { q: "It told me not to touch the wiring and had an electrician booked instead. That's the whole point.", who: "Homeowner — what the pilot is built to feel like" },
+];
 const TRUST = [
   "Vetted, licensed & insured trades",
   "Firm upfront prices",
@@ -42,7 +49,8 @@ export function Login() {
         <h1>A great tradie at a fair price,<br /><span className="accent">sorted</span>.</h1>
         <p className="sub">
           Tell our AI concierge what's wrong. Get safe DIY help, or one firm quote from a vetted local
-          trade — accept in a tap, with your payment held securely until the job's done.
+          trade in minutes — not days of chasing callbacks. Accept in a tap, with your payment held
+          securely until the job's done.
         </p>
 
         <div className="trust-strip">
@@ -79,6 +87,11 @@ export function Login() {
           <div className="step" key={s.n}><div className="n">{s.n}</div><h4>{s.h}</h4><p>{s.p}</p></div>
         ))}
       </div>
+      <div style={{ textAlign: "center", marginTop: 14 }}>
+        <button className="btn ghost sm" onClick={() => nav("/how")}>See exactly how it works →</button>
+      </div>
+
+      <Rotator />
 
       <p className="section-h">Popular categories</p>
       <div className="cats">
@@ -92,6 +105,30 @@ export function Login() {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/** One quote at a time, rotating — keeps the landing page clean. */
+function Rotator() {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setI((n) => (n + 1) % SAMPLE_QUOTES.length), 5000);
+    return () => clearInterval(t);
+  }, []);
+  const s = SAMPLE_QUOTES[i]!;
+  return (
+    <div className="rotator" aria-live="polite">
+      <blockquote key={i} className="rot-quote">
+        "{s.q}"
+        <footer>{s.who}</footer>
+      </blockquote>
+      <div className="rot-dots">
+        {SAMPLE_QUOTES.map((_, n) => (
+          <button key={n} className={n === i ? "on" : ""} onClick={() => setI(n)} aria-label={`Quote ${n + 1}`} />
+        ))}
+      </div>
+      <p className="rot-note">Pilot preview — real reviews from our Inner West pilot will appear here.</p>
     </div>
   );
 }

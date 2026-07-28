@@ -128,3 +128,24 @@ describe("messaging masks contact info and logs leakage", () => {
     expect(store.leakageLog).toHaveLength(1);
   });
 });
+
+describe("quote-seen: the tradie knows when the customer has looked", () => {
+  it("markQuotesSeen stamps offered quotes once and keeps the first timestamp", async () => {
+    const { store, market } = build();
+    const created = await market.createJob({
+      homeowner_id: "home-1",
+      description: "A single power point in the bedroom is dead",
+      photos: [], suburb: "Newtown", postcode: "2042", state: "NSW",
+    });
+    const quote = created.quote!;
+    expect(quote.viewed_at).toBeUndefined();
+
+    market.markQuotesSeen(created.job.id);
+    expect(store.quotes.get(quote.id)?.viewed_at).toBe(NOW);
+
+    // A second view must not move the timestamp.
+    const later = new MarketplaceService(store, undefined as never, () => "2026-07-05T00:00:00.000Z");
+    later.markQuotesSeen(created.job.id);
+    expect(store.quotes.get(quote.id)?.viewed_at).toBe(NOW);
+  });
+});
