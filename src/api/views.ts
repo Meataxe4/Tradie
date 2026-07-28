@@ -89,6 +89,7 @@ export function quoteView(quote: Quote, store: MemoryStore) {
     earliest_availability: quote.earliest_availability,
     status: quote.status,
     created_at: quote.created_at,
+    viewed_at: quote.viewed_at,
   };
 }
 

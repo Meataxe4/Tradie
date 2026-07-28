@@ -343,6 +343,19 @@ export class MarketplaceService {
     return quote;
   }
 
+  /**
+   * Stamp quotes as seen the first time the homeowner opens their quote list,
+   * so the tradie knows the ball is in the customer's court ("Seen ✓").
+   */
+  markQuotesSeen(jobId: string): void {
+    for (const quote of this.store.quotesForJob(jobId)) {
+      if (quote.status === "offered" && !quote.viewed_at) {
+        quote.viewed_at = this.clock();
+        this.store.quotes.set(quote.id, quote);
+      }
+    }
+  }
+
   /** The assigned trade returns a firm quote for their custom (routed) job. */
   submitFirmQuote(args: {
     job_id: string;

@@ -166,6 +166,8 @@ export interface Quote {
   earliest_availability?: string;
   status: QuoteStatus;
   created_at: string;
+  /** Set the first time the homeowner opens their quote list — the tradie sees "Seen". */
+  viewed_at?: string;
 }
 
 export type MessageSenderRole = "homeowner" | "tradie";

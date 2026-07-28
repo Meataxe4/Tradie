@@ -214,6 +214,7 @@ export interface Quote {
   earliest_availability?: string;
   status: string;
   created_at: string;
+  viewed_at?: string;
 }
 
 export interface QuoteLineItem {
