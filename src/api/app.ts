@@ -300,6 +300,7 @@ export function createApp(deps: AppDeps) {
     const job = store.jobs.get(param(req, "id"));
     if (!job) throw new HttpError(404, "Job not found");
     if (job.homeowner_id !== user.id) throw new HttpError(403, "Not your job");
+    market.markQuotesSeen(job.id);
     res.json(store.quotesForJob(job.id).map((q) => quoteView(q, store)));
   }));
 
