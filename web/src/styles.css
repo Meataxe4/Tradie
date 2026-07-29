@@ -661,3 +661,9 @@ dl.spec dd ul { margin: 0; padding-left: 18px; }
   .hiw-step, .hiw-step:nth-child(even) { flex-direction: column; }
   .phone { width: min(250px, 80vw); }
 }
+
+/* ---- variant B: tradie portal section ---- */
+.tradie-portal { margin-top: 30px; display: flex; gap: 18px; align-items: center; flex-wrap: wrap; border-color: var(--accent); }
+.tradie-portal .tp-copy { flex: 1 1 320px; }
+.tradie-portal .tp-actions { display: flex; flex-direction: column; gap: 8px; flex: none; min-width: 160px; }
+.tradie-portal .tp-actions .btn { text-align: center; }

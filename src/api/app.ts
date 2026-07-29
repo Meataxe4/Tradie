@@ -194,6 +194,7 @@ export function createApp(deps: AppDeps) {
       captions: Array.isArray(b.captions) ? b.captions.map(String) : undefined,
       project_id: b.project_id ? String(b.project_id) : undefined,
       preferred_tradie_id: b.preferred_tradie_id ? String(b.preferred_tradie_id) : undefined,
+      prefer_pro: Boolean(b.prefer_pro),
     });
     res.status(201).json({
       job: result.job,

@@ -64,6 +64,12 @@ export interface CreateJobInput {
   project_id?: string;
   /** Book-again: prefer this trade if they're still eligible for the job. */
   preferred_tradie_id?: string;
+  /**
+   * "Thanks, but I want a professional": the customer declines the DIY route,
+   * so a DIY_SAFE verdict still proceeds to assignment instead of resolving.
+   * The verdict itself is untouched — this only changes routing.
+   */
+  prefer_pro?: boolean;
   /** Internal: stage metadata when a multi-trade plan creates this job. */
   _stage?: { project_id: string; index: number; label: string };
 }
@@ -257,7 +263,7 @@ export class MarketplaceService {
     let assigned: TradieProfile | null = null;
     let quote: Quote | null = null;
 
-    if (result.verdict === "DIY_SAFE") {
+    if (result.verdict === "DIY_SAFE" && !input.prefer_pro) {
       this.transitionJob(job, "DIY_RESOLVED");
     } else {
       // §3 assign ONE vetted trade (assigned, not auctioned). Book-again: if the

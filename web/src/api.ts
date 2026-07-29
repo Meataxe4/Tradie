@@ -120,6 +120,7 @@ export const api = {
     captions?: string[];
     project_id?: string;
     preferred_tradie_id?: string;
+    prefer_pro?: boolean;
     suburb: string;
     postcode: string;
     state: string;

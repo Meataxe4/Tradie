@@ -3,7 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { useSession } from "../session";
 import type { TriagePreview } from "../types";
-import { Icon } from "../ui";
+import { CATEGORY_META, Icon } from "../ui";
+import { HOW } from "./Login";
 import { downscale } from "./NewJob";
 
 /**
@@ -21,6 +22,7 @@ const EXAMPLES = [
   "A power point stopped working",
   "Hot water system is dead",
 ];
+const POPULAR = ["electrical", "plumbing_water", "gas", "hvac", "carpentry", "handyman", "appliance", "locksmith"];
 
 type Photo = { id: string; dataUrl: string; caption: string };
 
@@ -31,6 +33,8 @@ export function ProblemFirst() {
   const [err, setErr] = useState("");
   const [preview, setPreview] = useState<TriagePreview | null>(null);
   const [emergencyAck, setEmergencyAck] = useState(false);
+  // DIY verdict: the customer can decline the self-help route and ask for a pro.
+  const [wantPro, setWantPro] = useState(false);
   const galleryRef = useRef<HTMLInputElement>(null);
 
   const addFiles = async (files: FileList | null) => {
@@ -107,33 +111,52 @@ export function ProblemFirst() {
           </div>
         )}
 
-        {diy && t.diy_guidance && (
+        {diy && t.diy_guidance && !wantPro && (
           <div className="card">
-            <h3>{Icon.tools}You can likely sort this yourself — here's how</h3>
+            <h3>{Icon.tools}You can sort this yourself — here's your guide</h3>
             <ol style={{ margin: "8px 0 0", paddingLeft: 20, lineHeight: 1.7 }}>
               {t.diy_guidance.steps.map((s) => <li key={s}>{s}</li>)}
             </ol>
+            {t.diy_guidance.tools_required.length > 0 && (
+              <p style={{ marginTop: 10, fontSize: 13.5, color: "var(--muted)" }}>
+                <b>You'll need:</b> {t.diy_guidance.tools_required.join(", ")}
+              </p>
+            )}
             <p className="notice" style={{ marginTop: 10 }}>
               {t.diy_guidance.stop_conditions[0] ?? "If anything feels off, stop and get a licensed tradie."}
             </p>
+            <button className="btn ghost" style={{ marginTop: 14, width: "100%" }} onClick={() => setWantPro(true)}>
+              Thanks — but I'd rather a professional
+            </button>
           </div>
         )}
 
-        <GuestSignup
-          heading={diy
-            ? "Want a pro on standby anyway?"
-            : `Your vetted local ${trade} is ready to quote`}
-          sub={diy
-            ? "Create a free account and we'll keep this job on file — one tap gets a licensed pro if it goes sideways."
-            : "One firm, GST-inclusive price — no bidding wars, no call-backs. Create your free account and we'll get it to you now."}
-          description={description}
-          photos={photos}
-          onErr={setErr}
-        />
+        {(!diy || wantPro) && (
+          <GuestSignup
+            heading={`Your vetted local ${trade} is ready to quote`}
+            sub={wantPro
+              ? "No worries — plenty of people would rather a pro handle it. One firm, GST-inclusive price, payment held until it's done. Create your free account and we'll line them up."
+              : "One firm, GST-inclusive price — no bidding wars, no call-backs. Create your free account and we'll get it to you now."}
+            description={description}
+            photos={photos}
+            preferPro={wantPro}
+            onErr={setErr}
+          />
+        )}
+        {diy && !wantPro && (
+          <GuestSignup
+            heading="Want this saved, with a pro one tap away?"
+            sub="Create a free account and we'll keep this job on file — if the fix goes sideways, a licensed pro is one tap away."
+            description={description}
+            photos={photos}
+            preferPro={false}
+            onErr={setErr}
+          />
+        )}
 
         {err && <p className="err">{err}</p>}
         <button className="btn ghost" style={{ marginTop: 14 }}
-          onClick={() => { setPreview(null); setEmergencyAck(false); }}>
+          onClick={() => { setPreview(null); setEmergencyAck(false); setWantPro(false); }}>
           ← Change my description
         </button>
         <p className="disclaimer" style={{ marginTop: 18 }}>{t.disclaimer}</p>
@@ -199,16 +222,53 @@ export function ProblemFirst() {
       </p>
       <p style={{ fontSize: 13, textAlign: "center", marginTop: 16 }}>
         Been here before? <Link to="/signin" style={{ color: "var(--accent)" }}>Sign in</Link>
-        <span style={{ color: "var(--muted)" }}> · </span>
-        <Link to="/how" style={{ color: "var(--accent)" }}>How it works</Link>
       </p>
+
+      <p className="section-h">How Sorted By works</p>
+      <div className="how">
+        {HOW.map((s) => (
+          <div className="step" key={s.n}><div className="n">{s.n}</div><h4>{s.h}</h4><p>{s.p}</p></div>
+        ))}
+      </div>
+      <div style={{ textAlign: "center", marginTop: 14 }}>
+        <Link className="btn ghost sm" to="/how">See exactly how it works →</Link>
+      </div>
+
+      <p className="section-h">Popular categories</p>
+      <div className="cats">
+        {POPULAR.map((c) => {
+          const meta = CATEGORY_META[c]!;
+          return (
+            <button className="cat-tile" key={c}
+              onClick={() => { setDescription(`My ${meta.label.toLowerCase()} problem: `); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+              <span className="ci">{Icon[meta.icon]}</span>
+              <span className="nm">{meta.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="card tradie-portal">
+        <div className="tp-copy">
+          <p className="eyebrow" style={{ margin: 0 }}>Tradie Portal</p>
+          <h3 style={{ margin: "6px 0" }}>{Icon.tools}On the tools? Work's waiting.</h3>
+          <p className="notice" style={{ margin: 0 }}>
+            Jobs arrive fully specced — photos, scope, access notes. Your Copilot drafts the quote,
+            the customer's money is held before you start, and you're paid on completion. 5% only when you're paid.
+          </p>
+        </div>
+        <div className="tp-actions">
+          <Link className="btn" to="/signin">Tradie sign in</Link>
+          <Link className="btn ghost" to="/signin">Join as a tradie</Link>
+        </div>
+      </div>
     </div>
   );
 }
 
 /** Minimal homeowner signup that immediately posts the saved problem as a job. */
-function GuestSignup({ heading, sub, description, photos, onErr }: {
-  heading: string; sub: string; description: string; photos: Photo[]; onErr: (m: string) => void;
+function GuestSignup({ heading, sub, description, photos, preferPro, onErr }: {
+  heading: string; sub: string; description: string; photos: Photo[]; preferPro?: boolean; onErr: (m: string) => void;
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -229,9 +289,10 @@ function GuestSignup({ heading, sub, description, photos, onErr }: {
         description: description.trim(),
         photos: photos.map((p) => p.dataUrl),
         captions: photos.map((p) => p.caption),
+        prefer_pro: preferPro,
         suburb, postcode, state,
       });
-      nav(res.triage.verdict === "DIY_SAFE" ? "/jobs" : `/jobs/${res.job.id}`);
+      nav(res.job.status === "DIY_RESOLVED" ? "/jobs" : `/jobs/${res.job.id}`);
     } catch (e) { onErr((e as Error).message); }
     finally { setBusy(false); }
   };

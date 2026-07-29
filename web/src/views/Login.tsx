@@ -6,7 +6,7 @@ import type { AuthResult, Identity, RegisterInput } from "../types";
 import { CATEGORY_META, Icon } from "../ui";
 import { Avatar } from "../parts";
 
-const HOW = [
+export const HOW = [
   { n: 1, h: "Tell the concierge", p: "Describe the problem in plain words and add photos. Our AI concierge asks the right questions — the way a great tradie would on the phone." },
   { n: 2, h: "Get one firm quote", p: "A genuinely safe fix is walked through step by step. Otherwise you get one firm, GST-inclusive price from a vetted local trade — no bidding wars, no chasing quotes." },
   { n: 3, h: "Accept in a tap, pay when it's done", p: "Booking holds your payment securely. The trade arrives knowing the scope, and money is only charged once the job's complete." },
