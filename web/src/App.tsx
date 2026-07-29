@@ -12,6 +12,7 @@ import { LeadDetail } from "./views/LeadDetail";
 import { Admin } from "./views/Admin";
 import { ProjectDetail } from "./views/ProjectDetail";
 import { HowItWorks } from "./views/HowItWorks";
+import { ProblemFirst } from "./views/ProblemFirst";
 
 function ThemeToggle() {
   const [theme, setTheme] = useState<"light" | "dark">(
@@ -81,7 +82,9 @@ function TopBar() {
 
 function Home() {
   const { identity } = useSession();
-  if (!identity) return <Login />;
+  // Variant B (problem-first build): guests land on the intake, not the pitch.
+  // Returning users have a stored session, so they skip straight into the app.
+  if (!identity) return import.meta.env.VITE_VARIANT === "b" ? <ProblemFirst /> : <Login />;
   return <Navigate to={identity.role === "tradie" ? "/leads" : identity.role === "admin" ? "/admin" : "/new"} replace />;
 }
 
@@ -124,6 +127,7 @@ export function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/how" element={<HowItWorks />} />
+          <Route path="/signin" element={<Login />} />
           <Route path="/new" element={<Guard role="homeowner"><NewJob /></Guard>} />
           <Route path="/jobs" element={<Guard role="homeowner"><Jobs /></Guard>} />
           <Route path="/jobs/:id" element={<Guard role="homeowner"><JobDetail /></Guard>} />
