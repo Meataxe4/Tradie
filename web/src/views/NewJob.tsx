@@ -20,7 +20,7 @@ const STATES = ["NSW", "VIC", "QLD", "WA", "SA", "TAS", "ACT", "NT"];
 interface Photo { id: string; dataUrl: string; caption: string; }
 
 /** Downscale a picked image to keep the payload small (max 1000px, JPEG q0.6). */
-function downscale(file: File): Promise<string> {
+export function downscale(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("Could not read that image"));
