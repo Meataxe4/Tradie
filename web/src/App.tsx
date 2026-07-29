@@ -66,6 +66,11 @@ function TopBar() {
         )}
         <span className="spacer" />
         <div className="who">
+          {!identity && import.meta.env.VITE_VARIANT === "b" && (
+            <NavLink to="/signin" className="btn ghost sm tp-header-btn">
+              Tradie Portal
+            </NavLink>
+          )}
           {identity && (
             <>
               <span>{identity.label}</span>
