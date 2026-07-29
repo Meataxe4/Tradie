@@ -13,6 +13,7 @@ import { Admin } from "./views/Admin";
 import { ProjectDetail } from "./views/ProjectDetail";
 import { HowItWorks } from "./views/HowItWorks";
 import { ProblemFirst } from "./views/ProblemFirst";
+import { TradiePortal } from "./views/TradiePortal";
 
 function ThemeToggle() {
   const [theme, setTheme] = useState<"light" | "dark">(
@@ -67,7 +68,7 @@ function TopBar() {
         <span className="spacer" />
         <div className="who">
           {!identity && import.meta.env.VITE_VARIANT === "b" && (
-            <NavLink to="/signin" className="btn ghost sm tp-header-btn">
+            <NavLink to="/tradies" className="btn ghost sm tp-header-btn">
               Tradie Portal
             </NavLink>
           )}
@@ -133,6 +134,7 @@ export function App() {
           <Route path="/" element={<Home />} />
           <Route path="/how" element={<HowItWorks />} />
           <Route path="/signin" element={<Login />} />
+          <Route path="/tradies" element={<TradiePortal />} />
           <Route path="/new" element={<Guard role="homeowner"><NewJob /></Guard>} />
           <Route path="/jobs" element={<Guard role="homeowner"><Jobs /></Guard>} />
           <Route path="/jobs/:id" element={<Guard role="homeowner"><JobDetail /></Guard>} />

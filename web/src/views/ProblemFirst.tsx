@@ -258,8 +258,8 @@ export function ProblemFirst() {
           </p>
         </div>
         <div className="tp-actions">
-          <Link className="btn" to="/signin">Tradie sign in</Link>
-          <Link className="btn ghost" to="/signin">Join as a tradie</Link>
+          <Link className="btn" to="/tradies">Visit the Tradie Portal</Link>
+          <Link className="btn ghost" to="/tradies">Join as a tradie</Link>
         </div>
       </div>
     </div>
