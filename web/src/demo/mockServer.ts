@@ -318,7 +318,7 @@ function createSingleJobMock(input: AnyMap) {
   db.jobs.set(job.id, job); db.triages.set(job.id, { result, overrides, model_verdict, vision });
   if (overrides.length > 0) db.overrideLog.push({ triage_id: triageId, job_id: job.id, at, overrides });
   let assigned: any = null; let quote: any = null;
-  if (result.verdict === "DIY_SAFE") { job.status = "DIY_RESOLVED"; }
+  if (result.verdict === "DIY_SAFE" && !input.prefer_pro) { job.status = "DIY_RESOLVED"; }
   else {
     const pref = input.preferred_tradie_id ? db.tradies.get(input.preferred_tradie_id) : null;
     assigned = (pref && tradieMatches(pref, job, result.required_licence_class) ? pref : null) ?? assignBest(job, result.required_licence_class);
