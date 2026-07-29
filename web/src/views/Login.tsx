@@ -12,11 +12,18 @@ export const HOW = [
   { n: 3, h: "Accept in a tap, pay when it's done", p: "Booking holds your payment securely. The trade arrives knowing the scope, and money is only charged once the job's complete." },
 ];
 // Pilot preview quotes — clearly labelled as samples until real pilot reviews
-// replace them. Do NOT present these as genuine customer reviews.
-const SAMPLE_QUOTES = [
+// replace them. Do NOT present these as genuine customer reviews. Each surface
+// shows the quotes for ITS audience: homeowner pages get homeowner quotes,
+// the Tradie Portal gets tradie quotes.
+export const HOMEOWNER_QUOTES = [
   { q: "Described the leak, had a firm price before the kettle boiled. Didn't chase a single quote.", who: "Homeowner — what the pilot is built to feel like" },
-  { q: "The job turned up already specced — photos, scope, access notes. I quoted from the ute in two minutes.", who: "Tradie — what the pilot is built to feel like" },
   { q: "It told me not to touch the wiring and had an electrician booked instead. That's the whole point.", who: "Homeowner — what the pilot is built to feel like" },
+  { q: "Money sat safely held until the job was done. No awkward cash chat, no invoice chasing me.", who: "Homeowner — what the pilot is built to feel like" },
+];
+export const TRADIE_QUOTES = [
+  { q: "The job turned up already specced — photos, scope, access notes. I quoted from the ute in two minutes.", who: "Tradie — what the pilot is built to feel like" },
+  { q: "No more quoting blind. I know the job, the suburb and the urgency before I commit to anything.", who: "Tradie — what the pilot is built to feel like" },
+  { q: "Customer accepted, money already held, paid the day I finished. Zero invoicing, zero chasing.", who: "Tradie — what the pilot is built to feel like" },
 ];
 const TRUST = [
   "Vetted, licensed & insured trades",
@@ -109,14 +116,14 @@ export function Login() {
   );
 }
 
-/** One quote at a time, rotating — keeps the landing page clean. */
-function Rotator() {
+/** One quote at a time, rotating — audience-specific via `quotes`. */
+export function Rotator({ quotes = HOMEOWNER_QUOTES }: { quotes?: Array<{ q: string; who: string }> }) {
   const [i, setI] = useState(0);
   useEffect(() => {
-    const t = setInterval(() => setI((n) => (n + 1) % SAMPLE_QUOTES.length), 5000);
+    const t = setInterval(() => setI((n) => (n + 1) % quotes.length), 5000);
     return () => clearInterval(t);
-  }, []);
-  const s = SAMPLE_QUOTES[i]!;
+  }, [quotes.length]);
+  const s = quotes[i]!;
   return (
     <div className="rotator" aria-live="polite">
       <blockquote key={i} className="rot-quote">
@@ -124,7 +131,7 @@ function Rotator() {
         <footer>{s.who}</footer>
       </blockquote>
       <div className="rot-dots">
-        {SAMPLE_QUOTES.map((_, n) => (
+        {quotes.map((_, n) => (
           <button key={n} className={n === i ? "on" : ""} onClick={() => setI(n)} aria-label={`Quote ${n + 1}`} />
         ))}
       </div>
@@ -133,7 +140,7 @@ function Rotator() {
   );
 }
 
-function LoginForm({ onDone }: { onDone: (r: AuthResult) => void }) {
+export function LoginForm({ onDone }: { onDone: (r: AuthResult) => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -156,9 +163,9 @@ function LoginForm({ onDone }: { onDone: (r: AuthResult) => void }) {
   );
 }
 
-function RegisterForm({ onDone }: { onDone: (r: AuthResult) => void }) {
-  const [role, setRole] = useState<"homeowner" | "tradie">("homeowner");
-  const [f, setF] = useState<RegisterInput>({ email: "", password: "", name: "", role: "homeowner", state: "NSW" });
+export function RegisterForm({ onDone, defaultRole = "homeowner" }: { onDone: (r: AuthResult) => void; defaultRole?: "homeowner" | "tradie" }) {
+  const [role, setRole] = useState<"homeowner" | "tradie">(defaultRole);
+  const [f, setF] = useState<RegisterInput>({ email: "", password: "", name: "", role: defaultRole, state: "NSW" });
   const [postcodesStr, setPostcodesStr] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
