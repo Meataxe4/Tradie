@@ -149,3 +149,19 @@ describe("quote-seen: the tradie knows when the customer has looked", () => {
     expect(store.quotes.get(quote.id)?.viewed_at).toBe(NOW);
   });
 });
+
+describe("'Thanks, but I want a professional' (prefer_pro)", () => {
+  it("a DIY-safe job still gets a vetted trade when the customer declines DIY", async () => {
+    const { market } = build();
+    const { job, triage, assigned } = await market.createJob({
+      homeowner_id: "home-1",
+      description: "My kitchen cabinet door won't close, the hinge seems loose",
+      photos: [], suburb: "Newtown", postcode: "2042", state: "NSW",
+      prefer_pro: true,
+    });
+    // The verdict stays honest — only the routing changes.
+    expect(triage.final_verdict).toBe("DIY_SAFE");
+    expect(job.status).not.toBe("DIY_RESOLVED");
+    expect(assigned).not.toBeNull();
+  });
+});
