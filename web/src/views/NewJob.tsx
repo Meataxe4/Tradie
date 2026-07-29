@@ -131,6 +131,25 @@ export function NewJob() {
     }
   };
 
+  // DIY verdict: the customer can decline the self-help route and get a pro —
+  // the same problem is re-posted with prefer_pro, which routes through normal
+  // assignment/quoting (the safety verdict itself is untouched).
+  const wantProInstead = async () => {
+    setBusy(true); setErr("");
+    try {
+      const res = await api.createJob({
+        description: description.trim(),
+        photos: photos.map((p) => p.dataUrl),
+        captions: photos.map((p) => p.caption),
+        prefer_pro: true,
+        suburb, postcode, state, full_address: address,
+      });
+      setResult(res);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (e) { setErr((e as Error).message); }
+    finally { setBusy(false); }
+  };
+
   // ---- emergency takeover (UX #4): safety actions first, everything else after ----
   if (result && result.triage.verdict === "EMERGENCY_STOP" && !emergencyAck) {
     const gas = result.triage.category === "gas";
@@ -162,7 +181,10 @@ export function NewJob() {
 
   // ---- result screen ----
   if (result) {
-    const isPro = result.triage.verdict !== "DIY_SAFE";
+    // A DIY verdict re-posted with prefer_pro produces a real bookable job, so
+    // the screen keys off the job's status — the verdict alone can't tell us.
+    const diyResolved = result.job.status === "DIY_RESOLVED";
+    const isPro = result.triage.verdict !== "DIY_SAFE" || !diyResolved;
     const rec = result.triage.recommended_trade;
     const trade = !rec || rec === "none" ? "tradie" : rec.replace("_", " ");
     const sub = result.project
@@ -226,8 +248,14 @@ export function NewJob() {
         )}
 
         <TriageView triage={result.triage} overrides={result.overrides} modelVerdict={result.model_verdict} />
+        {err && <p className="err">{err}</p>}
         <div className="row wrap" style={{ marginTop: 18 }}>
           {isPro && <button className="btn" onClick={() => nav(`/jobs/${result.job.id}`)}>{result.quote ? "View your quote →" : "View job →"}</button>}
+          {diyResolved && (
+            <button className="btn" disabled={busy} onClick={wantProInstead}>
+              {busy ? "Lining up a pro…" : "Thanks — but I'd rather a professional"}
+            </button>
+          )}
           <button className="btn ghost" onClick={() => { setResult(null); setDescription(""); setPhotos([]); setStep(0); setEmergencyAck(false); }}>Post another problem</button>
         </div>
       </div>
