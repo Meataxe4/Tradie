@@ -99,6 +99,10 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
 }
 
 export const api = {
+  // guest (no auth) — variant B problem-first intake
+  triagePreview: (input: { description: string; photos?: string[]; captions?: string[] }) =>
+    req<import("./types").TriagePreview>("POST", "/triage/preview", input),
+
   // auth
   register: (input: RegisterInput) => req<AuthResult>("POST", "/auth/register", input),
   login: (email: string, password: string) => req<AuthResult>("POST", "/auth/login", { email, password }),

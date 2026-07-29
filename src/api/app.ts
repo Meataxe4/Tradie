@@ -526,6 +526,30 @@ export function createApp(deps: AppDeps) {
     res.json(market.declineVariation(param(req, "id")));
   }));
 
+  // POST /triage/preview — PUBLIC (no auth): problem-first intake. A guest
+  // describes the problem and gets the gated verdict + ballpark before any
+  // account exists. Safety guidance must never sit behind a signup wall; the
+  // firm quote (job creation) still requires an account. No job is persisted.
+  api.post("/triage/preview", wrap(async (req, res) => {
+    const b = req.body ?? {};
+    const description = String(b.description ?? "").trim();
+    if (!description) throw new HttpError(400, "description required");
+    const captions = Array.isArray(b.captions) ? b.captions.map(String) : undefined;
+    const photos = Array.isArray(b.photos) ? b.photos : [];
+    const outcome = await triageSvc.triage({
+      description,
+      photoCount: photos.length,
+      images: parseImages(photos),
+      captions,
+    });
+    const triage = outcome.gate.triage;
+    const ballpark =
+      triage.verdict === "NEEDS_LICENSED_PRO"
+        ? estimateBallpark(triage.category, triage.job_spec?.urgency ?? "routine", triage.job_spec?.symptoms?.length ?? 0)
+        : null;
+    res.json({ triage, vision: outcome.vision, ballpark });
+  }));
+
   // POST /triage — internal: run triage without persisting a job (§8 shared).
   api.post("/triage", wrap(async (req, res) => {
     requireRole(req, "admin");

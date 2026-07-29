@@ -167,6 +167,13 @@ export interface ProjectView {
   all_priced: boolean;
 }
 
+/** Guest triage (variant B): verdict + ballpark before any account exists. */
+export interface TriagePreview {
+  triage: TriageResult;
+  vision: VisionSummary;
+  ballpark: { low: number; high: number } | null;
+}
+
 export interface CreateJobResponse {
   job: JobSummary;
   triage: TriageResult;

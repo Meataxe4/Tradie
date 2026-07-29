@@ -392,6 +392,19 @@ export function handleRequest(method: string, path: string, body: any, authHeade
   const user = decode(authHeader);
   const need = (...roles: Role[]): any => { if (!user) throw err(401, "Sign in to continue"); if (!roles.includes(user.role)) throw err(403, "Wrong role"); return user; };
   try {
+    // PUBLIC guest triage (variant B problem-first intake): verdict + ballpark
+    // before any account exists — safety guidance is never behind a signup wall.
+    if (method === "POST" && seg[0] === "triage" && seg[1] === "preview") {
+      const description = String(body?.description ?? "").trim();
+      if (!description) return err(400, "description required");
+      const captions: string[] = (body?.captions ?? []).filter((c: any) => c && String(c).trim());
+      const text = [description, ...captions].join(". ");
+      const { result } = gate(uid(), classify(text));
+      const photoCount = (body?.photos ?? []).length;
+      const vision = { photos: photoCount, captions: captions.length, analyzed: false, mode: photoCount > 0 ? "preview" : "none" };
+      const ballpark = result.verdict === "NEEDS_LICENSED_PRO" ? qBallpark(result.category, result.job_spec?.urgency ?? "routine", result.job_spec?.symptoms?.length ?? 0) : null;
+      return ok({ triage: result, vision, ballpark });
+    }
     if (method === "POST" && seg[0] === "auth" && seg[1] === "register") return doRegister(body);
     if (method === "POST" && seg[0] === "auth" && seg[1] === "login") return doLogin(body);
     if (method === "POST" && seg[0] === "auth" && seg[1] === "demo") { const u = db.users.get(seg[2]!); if (!u || !db.demoIds.has(seg[2]!)) return err(404, "Unknown demo account"); return ok(authResult(u)); }
