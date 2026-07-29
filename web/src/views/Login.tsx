@@ -163,7 +163,7 @@ export function LoginForm({ onDone }: { onDone: (r: AuthResult) => void }) {
   );
 }
 
-export function RegisterForm({ onDone, defaultRole = "homeowner" }: { onDone: (r: AuthResult) => void; defaultRole?: "homeowner" | "tradie" }) {
+export function RegisterForm({ onDone, defaultRole = "homeowner", lockRole = false }: { onDone: (r: AuthResult) => void; defaultRole?: "homeowner" | "tradie"; lockRole?: boolean }) {
   const [role, setRole] = useState<"homeowner" | "tradie">(defaultRole);
   const [f, setF] = useState<RegisterInput>({ email: "", password: "", name: "", role: defaultRole, state: "NSW" });
   const [postcodesStr, setPostcodesStr] = useState("");
@@ -191,10 +191,10 @@ export function RegisterForm({ onDone, defaultRole = "homeowner" }: { onDone: (r
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); submit(); }}>
-      <div className="seg">
+      {!lockRole && <div className="seg">
         <button type="button" className={role === "homeowner" ? "on" : ""} onClick={() => setRole("homeowner")}>I need a job done</button>
         <button type="button" className={role === "tradie" ? "on" : ""} onClick={() => setRole("tradie")}>I'm a tradie</button>
-      </div>
+      </div>}
 
       <label className="field"><span className="lbl">Your name</span>
         <input value={f.name} onChange={(e) => set("name", e.target.value)} autoComplete="name" /></label>
