@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { useSession } from "../session";
 import type { AuthResult, Identity } from "../types";
@@ -40,6 +40,9 @@ export function TradiePortal() {
 
   return (
     <div>
+      <div style={{ textAlign: "right", marginBottom: 4 }}>
+        <Link className="btn ghost sm" to="/">Home owner? Get your job sorted →</Link>
+      </div>
       <section className="hero">
         <p className="eyebrow">Tradie Portal</p>
         <h1>Stop quoting blind.<br /><span className="accent">Start getting paid.</span></h1>
@@ -54,7 +57,7 @@ export function TradiePortal() {
             <button className={tab === "register" ? "on" : ""} onClick={() => setTab("register")}>Join as a tradie</button>
             <button className={tab === "login" ? "on" : ""} onClick={() => setTab("login")}>Sign in</button>
           </div>
-          {tab === "register" ? <RegisterForm onDone={go} defaultRole="tradie" /> : <LoginForm onDone={go} />}
+          {tab === "register" ? <RegisterForm onDone={go} defaultRole="tradie" lockRole /> : <LoginForm onDone={go} />}
         </div>
 
         {tradieDemos.length > 0 && (

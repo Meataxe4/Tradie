@@ -4,7 +4,7 @@ import { api } from "../api";
 import { useSession } from "../session";
 import type { TriagePreview } from "../types";
 import { CATEGORY_META, Icon } from "../ui";
-import { HOW } from "./Login";
+import { HOW, Rotator } from "./Login";
 import { downscale } from "./NewJob";
 
 /**
@@ -233,6 +233,8 @@ export function ProblemFirst() {
       <div style={{ textAlign: "center", marginTop: 14 }}>
         <Link className="btn ghost sm" to="/how">See exactly how it works →</Link>
       </div>
+
+      <Rotator />
 
       <p className="section-h">Popular categories</p>
       <div className="cats">
