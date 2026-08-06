@@ -130,3 +130,38 @@ describe("multi-trade detection handles natural phrasings (Blake QA, 6 Aug)", ()
     expect(plan?.stages.map((s) => s.category)).toEqual(["plumbing_water", "carpentry", "handyman"]);
   });
 });
+
+describe("multi-trade INFERENCE (Blake, 6 Aug: decipher trades, don't pattern-match)", () => {
+  it("water into building fabric implies repair + repaint even when unsaid", () => {
+    for (const phrase of [
+      "There's a damp patch spreading on the lounge room wall",
+      "Water is pouring in under the laundry floor",
+      "found moisture in the ceiling near the bathroom",
+    ]) {
+      const plan = detectMultiTradePlan(phrase);
+      expect(plan, phrase).not.toBeNull();
+      expect(plan!.stages.map((s) => s.category)).toEqual(["plumbing_water", "carpentry", "handyman"]);
+    }
+  });
+
+  it("explicit multi-domain descriptions are decomposed in dependency order", () => {
+    const plan = detectMultiTradePlan("Renovating the bathroom — new tiles, move the shower and add a power point over the vanity");
+    expect(plan).not.toBeNull();
+    const cats = plan!.stages.map((s) => s.category);
+    expect(cats).toContain("plumbing_water");
+    expect(cats).toContain("electrical");
+    expect(cats.indexOf("plumbing_water")).toBeLessThan(cats.indexOf("carpentry"));
+  });
+
+  it("a damaged wall needing paint is carpenter then painter", () => {
+    const plan = detectMultiTradePlan("There's a hole in the plasterboard wall that needs patching and repainting");
+    expect(plan!.stages.map((s) => s.category)).toEqual(["carpentry", "handyman"]);
+  });
+
+  it("contained single-trade problems stay single", () => {
+    expect(detectMultiTradePlan("The bathroom tap is dripping constantly")).toBeNull();
+    expect(detectMultiTradePlan("Water leaking under the kitchen sink")).toBeNull();
+    expect(detectMultiTradePlan("A power point in the bedroom is dead")).toBeNull();
+    expect(detectMultiTradePlan("The oven has stopped heating up properly")).toBeNull();
+  });
+});
