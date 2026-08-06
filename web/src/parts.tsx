@@ -1,6 +1,53 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Icon } from "./ui";
 import type { TradieSummary } from "./types";
+
+/**
+ * The clarify-and-refine loop (M1 conversational intake, mechanics built now):
+ * the concierge's questions each get an answer box; answers are folded back
+ * into the description and triage runs again. Only the ANSWERS are folded —
+ * folding question text would let phrases like "burning smell" inside a
+ * question trip the keyword brain. The live model replaces the brain, not
+ * this loop.
+ */
+export function ClarifyForm({ questions, busy, onAnswers, onSkip }: {
+  questions: string[];
+  busy?: boolean;
+  onAnswers: (foldedAnswers: string) => void;
+  onSkip?: () => void;
+}) {
+  const [answers, setAnswers] = useState<string[]>(() => questions.map(() => ""));
+  const filled = answers.some((a) => a.trim());
+  return (
+    <div className="card" style={{ borderColor: "var(--accent)" }}>
+      <h3>{Icon.quest}A few quick questions</h3>
+      <p className="notice" style={{ marginBottom: 12 }}>
+        Twenty seconds here gets you routed right the first time — answer what you can.
+      </p>
+      {questions.map((q, i) => (
+        <label className="field" key={q} style={{ marginBottom: 10 }}>
+          <span className="lbl">{q}</span>
+          <input
+            value={answers[i]}
+            onChange={(e) => setAnswers((a) => a.map((x, n) => (n === i ? e.target.value : x)))}
+            placeholder="Type your answer…"
+          />
+        </label>
+      ))}
+      <div className="row wrap" style={{ gap: 8, marginTop: 6 }}>
+        <button className="btn" disabled={!filled || busy}
+          onClick={() => onAnswers(answers.map((a) => a.trim()).filter(Boolean).join(". "))}>
+          {busy ? "Checking…" : "Send answers →"}
+        </button>
+        {onSkip && (
+          <button className="btn ghost" disabled={busy} onClick={onSkip}>
+            Skip — sort it with what I've told you
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /** Relative "posted 2h ago" style time (browser clock; fine for display). */
 export function timeAgo(iso: string): string {
