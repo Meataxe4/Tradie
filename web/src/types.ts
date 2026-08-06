@@ -178,6 +178,8 @@ export interface TriagePreview {
   triage: TriageResult;
   vision: VisionSummary;
   ballpark: { low: number; high: number } | null;
+  /** Set when the problem spans several trades — signup creates the full project. */
+  multi_trade: { title: string; trades: string[] } | null;
 }
 
 export interface CreateJobResponse {

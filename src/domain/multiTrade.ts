@@ -30,7 +30,7 @@ interface Pattern {
 const PATTERNS: Pattern[] = [
   {
     // The brief's canonical case: a ceiling leak needs plumber → carpenter → painter.
-    match: /(ceiling|roof).{0,40}(leak|water (stain|damage|dripping))|(leak|water).{0,40}(through|from|in) the (ceiling|roof)|water stain on the ceiling/i,
+    match: /(ceiling|roof).{0,40}(leak|water (stain|damage|dripping))|(leak|water|drip).{0,40}(through|from|in|into|under) (the |my |our )?(ceiling|roof)|water stain on the ceiling|(roof|ceiling) (is |was )?(leaking|dripping)/i,
     plan: {
       title: "Ceiling leak — find, fix and make good",
       stages: [
