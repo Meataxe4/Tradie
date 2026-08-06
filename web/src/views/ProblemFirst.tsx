@@ -5,6 +5,7 @@ import { useSession } from "../session";
 import type { TriagePreview } from "../types";
 import { CATEGORY_META, Icon } from "../ui";
 import { HOW, Rotator } from "./Login";
+import { ClarifyForm } from "../parts";
 import { downscale } from "./NewJob";
 
 /**
@@ -35,7 +36,12 @@ export function ProblemFirst() {
   const [emergencyAck, setEmergencyAck] = useState(false);
   // DIY verdict: the customer can decline the self-help route and ask for a pro.
   const [wantPro, setWantPro] = useState(false);
+  // Clarify-and-refine: answers to the concierge's questions fold back into
+  // the description and triage runs again. skipAnyway lets them proceed unclear.
+  const [extra, setExtra] = useState("");
+  const [skipAnyway, setSkipAnyway] = useState(false);
   const galleryRef = useRef<HTMLInputElement>(null);
+  const fullDesc = (extraStr = extra) => [description.trim(), extraStr].filter(Boolean).join(". ");
 
   const addFiles = async (files: FileList | null) => {
     if (!files) return;
@@ -49,11 +55,11 @@ export function ProblemFirst() {
     if (galleryRef.current) galleryRef.current.value = "";
   };
 
-  const submit = async () => {
+  const submit = async (extraStr = extra) => {
     setBusy(true); setErr("");
     try {
       const res = await api.triagePreview({
-        description: description.trim(),
+        description: fullDesc(extraStr),
         photos: photos.map((p) => p.dataUrl),
         captions: photos.map((p) => p.caption),
       });
@@ -96,12 +102,26 @@ export function ProblemFirst() {
   if (preview) {
     const t = preview.triage;
     const diy = t.verdict === "DIY_SAFE";
+    const unclear = t.verdict === "UNCLEAR" && !skipAnyway;
     const trade = !t.recommended_trade || t.recommended_trade === "none" ? "tradie" : t.recommended_trade.replace("_", " ");
     return (
       <div style={{ maxWidth: 640, margin: "0 auto" }}>
         <p className="eyebrow">We're onto it</p>
         <h1 className="page-title">{t.job_spec?.title ?? "Here's what this looks like"}</h1>
         <p className="page-sub">{t.user_message}</p>
+
+        {unclear && (
+          <ClarifyForm
+            questions={t.clarifying_questions}
+            busy={busy}
+            onAnswers={(folded) => {
+              const combined = extra ? `${extra}. ${folded}` : folded;
+              setExtra(combined);
+              submit(combined);
+            }}
+            onSkip={() => setSkipAnyway(true)}
+          />
+        )}
 
         {preview.multi_trade && (
           <div className="card" style={{ borderColor: "var(--accent)" }}>
@@ -144,23 +164,23 @@ export function ProblemFirst() {
           </div>
         )}
 
-        {(!diy || wantPro) && (
+        {!unclear && (!diy || wantPro) && (
           <GuestSignup
             heading={`Your vetted local ${trade} is ready to quote`}
             sub={wantPro
               ? "No worries — plenty of people would rather a pro handle it. One firm, GST-inclusive price, payment held until it's done. Create your free account and we'll line them up."
               : "One firm, GST-inclusive price — no bidding wars, no call-backs. Create your free account and we'll get it to you now."}
-            description={description}
+            description={fullDesc()}
             photos={photos}
             preferPro={wantPro}
             onErr={setErr}
           />
         )}
-        {diy && !wantPro && (
+        {!unclear && diy && !wantPro && (
           <GuestSignup
             heading="Want this saved, with a pro one tap away?"
             sub="Create a free account and we'll keep this job on file — if the fix goes sideways, a licensed pro is one tap away."
-            description={description}
+            description={fullDesc()}
             photos={photos}
             preferPro={false}
             onErr={setErr}
@@ -169,7 +189,7 @@ export function ProblemFirst() {
 
         {err && <p className="err">{err}</p>}
         <button className="btn ghost" style={{ marginTop: 14 }}
-          onClick={() => { setPreview(null); setEmergencyAck(false); setWantPro(false); }}>
+          onClick={() => { setPreview(null); setEmergencyAck(false); setWantPro(false); setExtra(""); setSkipAnyway(false); }}>
           ← Change my description
         </button>
         <p className="disclaimer" style={{ marginTop: 18 }}>{t.disclaimer}</p>
@@ -227,7 +247,7 @@ export function ProblemFirst() {
 
       {err && <p className="err">{err}</p>}
       <button className="btn" style={{ width: "100%", fontSize: 17, padding: "14px 0" }}
-        disabled={!canSubmit || busy} onClick={submit}>
+        disabled={!canSubmit || busy} onClick={() => submit()}>
         {busy ? "Working it out…" : "Sort it now →"}
       </button>
       <p style={{ fontSize: 12.5, color: "var(--muted)", textAlign: "center", marginTop: 10 }}>

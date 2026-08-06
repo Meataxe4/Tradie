@@ -4,6 +4,7 @@ import { api } from "../api";
 import type { CreateJobResponse } from "../types";
 import { CATEGORY_META, Icon, money } from "../ui";
 import { TriageView } from "./TriageView";
+import { ClarifyForm } from "../parts";
 import { storage } from "../storage";
 
 const EXAMPLES = [
@@ -107,21 +108,42 @@ export function NewJob() {
     setPhotos((p) => p.map((x) => (x.id === id ? { ...x, caption } : x)));
   const removePhoto = (id: string) => setPhotos((p) => p.filter((x) => x.id !== id));
 
-  const submit = async () => {
+  // Clarify-and-refine loop: an UNCLEAR verdict asks its questions with answer
+  // boxes; answers fold into the description and triage runs again — no job is
+  // created until the concierge is confident (or the customer skips ahead).
+  const [clarify, setClarify] = useState<string[] | null>(null);
+  const [extra, setExtra] = useState("");
+  const fullDesc = (extraStr: string) => [description.trim(), extraStr].filter(Boolean).join(". ");
+
+  const submit = async (extraStr = extra, force = false) => {
     setBusy(true); setErr("");
     try {
       // Ask-once: store the place details the moment they tell us.
       if (!knowsPlace && buildEra) {
         await api.updateProfile({ property: { build_era: buildEra } }).catch(() => {});
       }
+      if (!force) {
+        const pv = await api.triagePreview({
+          description: fullDesc(extraStr),
+          photos: photos.map((p) => p.dataUrl),
+          captions: photos.map((p) => p.caption),
+        });
+        if (pv.triage.verdict === "UNCLEAR") {
+          setClarify(pv.triage.clarifying_questions);
+          setBusy(false);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          return;
+        }
+      }
       const res = await api.createJob({
-        description: description.trim(),
+        description: fullDesc(extraStr),
         photos: photos.map((p) => p.dataUrl),
         captions: photos.map((p) => p.caption),
         project_id: projectId,
         preferred_tradie_id: preferId,
         suburb, postcode, state, full_address: address,
       });
+      setClarify(null);
       setResult(res);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
@@ -138,7 +160,7 @@ export function NewJob() {
     setBusy(true); setErr("");
     try {
       const res = await api.createJob({
-        description: description.trim(),
+        description: fullDesc(extra),
         photos: photos.map((p) => p.dataUrl),
         captions: photos.map((p) => p.caption),
         prefer_pro: true,
@@ -149,6 +171,34 @@ export function NewJob() {
     } catch (e) { setErr((e as Error).message); }
     finally { setBusy(false); }
   };
+
+  // ---- clarify-and-refine: the concierge needs a little more before routing ----
+  if (clarify && !result) {
+    return (
+      <div style={{ maxWidth: 640, margin: "0 auto" }}>
+        <p className="eyebrow">Nearly there</p>
+        <h1 className="page-title">Help me get this right</h1>
+        <p className="page-sub">
+          I want to route this safely and to the right trade first go — your answers go straight
+          back into the triage.
+        </p>
+        <ClarifyForm
+          questions={clarify}
+          busy={busy}
+          onAnswers={(folded) => {
+            const combined = extra ? `${extra}. ${folded}` : folded;
+            setExtra(combined);
+            submit(combined);
+          }}
+          onSkip={() => submit(extra, true)}
+        />
+        {err && <p className="err">{err}</p>}
+        <button className="btn ghost" style={{ marginTop: 14 }} onClick={() => setClarify(null)}>
+          ← Edit my description instead
+        </button>
+      </div>
+    );
+  }
 
   // ---- emergency takeover (UX #4): safety actions first, everything else after ----
   if (result && result.triage.verdict === "EMERGENCY_STOP" && !emergencyAck) {
@@ -264,7 +314,7 @@ export function NewJob() {
               {busy ? "Lining up a pro…" : "Thanks — but I'd rather a professional"}
             </button>
           )}
-          <button className="btn ghost" onClick={() => { setResult(null); setDescription(""); setPhotos([]); setStep(0); setEmergencyAck(false); }}>Post another problem</button>
+          <button className="btn ghost" onClick={() => { setResult(null); setDescription(""); setPhotos([]); setStep(0); setEmergencyAck(false); setClarify(null); setExtra(""); }}>Post another problem</button>
         </div>
       </div>
     );
@@ -384,7 +434,7 @@ export function NewJob() {
           {err && <p className="err">{err}</p>}
           <div className="row wrap">
             <button className="btn ghost" onClick={() => setStep(0)}>← Back</button>
-            <button className="btn" onClick={submit} disabled={busy}>{busy ? "Getting your result…" : "Get triage & quotes →"}</button>
+            <button className="btn" onClick={() => submit()} disabled={busy}>{busy ? "Getting your result…" : "Get triage & quotes →"}</button>
           </div>
         </div>
       )}
