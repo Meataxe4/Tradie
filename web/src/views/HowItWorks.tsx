@@ -124,7 +124,7 @@ function TradieSteps() {
         <div className="mini-card">
           <div className="mini-lbl">Paid to you</div>
           <div className="mini-price">$228</div>
-          <div className="mini-sub">$240 job · 5% only on completion</div>
+          <div className="mini-sub">$240 job · foundation rate 5% (standard 8%)</div>
           <div className="mini-timeline"><span className="done">Done</span><span className="done">Confirmed</span><span className="done">Paid ✓</span></div>
         </div>
       </Step>

@@ -60,7 +60,7 @@ export function Stars({ value, count }: { value: number; count?: number }) {
   );
 }
 
-export function Badge({ tone, icon, children }: { tone: "safe" | "accent" | "muted"; icon?: keyof typeof Icon; children: ReactNode }) {
+export function Badge({ tone, icon, children }: { tone: "safe" | "accent" | "muted" | "gold"; icon?: keyof typeof Icon; children: ReactNode }) {
   return (
     <span className={`trust-badge t-${tone}`}>
       {icon && <span className="tb-ico">{Icon[icon]}</span>}
@@ -73,6 +73,11 @@ export function Badge({ tone, icon, children }: { tone: "safe" | "accent" | "mut
 export function TrustRow({ tradie }: { tradie: TradieSummary }) {
   return (
     <div className="trust-row">
+      {tradie.gold && (
+        <span title="Gold tradie — consistently 5-star: great communication, jobs completed as quoted, fair prices">
+          <Badge tone="gold" icon="star">Gold tradie</Badge>
+        </span>
+      )}
       {tradie.verified && <Badge tone="safe" icon="tick">Verified</Badge>}
       {tradie.licence_verified && <Badge tone="safe" icon="shield">Licence checked</Badge>}
       {tradie.insured && <Badge tone="muted" icon="doc">Insured</Badge>}

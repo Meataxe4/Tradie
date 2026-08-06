@@ -667,3 +667,12 @@ dl.spec dd ul { margin: 0; padding-left: 18px; }
 .tradie-portal .tp-copy { flex: 1 1 320px; }
 .tradie-portal .tp-actions { display: flex; flex-direction: column; gap: 8px; flex: none; min-width: 160px; }
 .tradie-portal .tp-actions .btn { text-align: center; }
+
+/* ---- gold tradie badge (Etsy Star Seller style) ---- */
+.trust-badge.t-gold { background: linear-gradient(135deg, #f6e27a, #e8b93c); color: #5b4200; border: 1px solid #d9a92f; }
+[data-theme="dark"] .trust-badge.t-gold { background: linear-gradient(135deg, #4a3a10, #6b5416); color: #f4d97b; border-color: #8a6d1d; }
+
+/* ---- job-site group chat crew strip ---- */
+.crew-strip { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; }
+.crew-strip .crew-pill { font-size: 12px; background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--accent); border-radius: 99px; padding: 3px 10px; font-weight: 600; }
+.msg-sender { font-size: 11px; font-weight: 700; color: var(--accent); margin-bottom: 2px; }

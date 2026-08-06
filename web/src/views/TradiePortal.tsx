@@ -19,7 +19,7 @@ const BENEFITS = [
   { icon: "shield" as const, h: "The money's real before you start", p: "Accepted means the customer's payment is already held. Finish the job, they confirm, you're paid — no invoicing, no chasing." },
   { icon: "clock" as const, h: "Know when you've been seen", p: "You'll see the moment the customer opens your quote — so you follow up at the right time, not into the void." },
   { icon: "pin" as const, h: "Jobs that fit you", p: "Matched on your trade, your licence and your service area. One vetted trade per job — no race to the bottom against six others." },
-  { icon: "tick" as const, h: "5% only when you're paid", p: "No lead fees, no subscriptions, no paying for tyre-kickers. The platform only earns when you do." },
+  { icon: "tick" as const, h: "8% only when you're paid — 5% for life if you're a founder", p: "No lead fees, no subscriptions, no paying for tyre-kickers. The platform only earns when you do — and foundation trades who join before launch keep a 5% rate locked for life." },
 ];
 
 export function TradiePortal() {

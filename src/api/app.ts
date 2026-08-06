@@ -457,6 +457,9 @@ export function createApp(deps: AppDeps) {
     const msg = market.postMessage({
       thread_id: param(req, "id"),
       sender_role: user.role === "tradie" ? "tradie" : "homeowner",
+      sender_name: user.role === "tradie"
+        ? store.tradies.get(user.id)?.business_name
+        : store.displayNames.get(user.id) ?? "Homeowner",
       body: String(b.body),
     });
     res.status(201).json(msg);

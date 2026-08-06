@@ -186,7 +186,7 @@ function draftReviewResponseMock(review: any, biz: string): AnyMap {
 }
 
 // ---------- fees + strengths ----------
-function computeFee(amount: number) { const platform_fee = Math.round((amount * 500) / 10000); return { amount, platform_fee, trade_payout: amount - platform_fee }; }
+function computeFee(amount: number, tradieId?: string) { const bps = db.tradies.get(tradieId ?? "")?.foundation ? 500 : 800; const platform_fee = Math.round((amount * bps) / 10000); return { amount, platform_fee, trade_payout: amount - platform_fee, fee_bps: bps }; }
 const STRENGTH_LABELS: Record<string, string> = { quality: "Great workmanship", timeliness: "Always on time", communication: "Great communicator", tidiness: "Spotless cleanup", value: "Great value" };
 function computeStrengths(reviews: any[]) {
   if (reviews.length < 2) return [];
@@ -212,7 +212,9 @@ function assignBest(job: any, requiredClass: string | null) {
 function tradieSummary(id: string) {
   const t = db.tradies.get(id); const u = db.users.get(id); if (!t) return null;
   const strengths = computeStrengths([...db.reviews.values()].filter((r) => r.ratee_id === id && r.rater_role === "homeowner"));
-  return { tradie_id: id, business_name: t.business_name, rating_avg: t.rating_avg, jobs_completed: t.jobs_completed, response_minutes: t.avg_response_minutes ?? null, verified: t.verified_status === "verified", licence_class: t.licences[0]?.class ?? null, licence_verified: t.licences[0]?.verified_status === "verified", insured: !!t.insurance?.public_liability_expiry, member_since: u?.created_at ?? null, strengths };
+  const hasOpenDispute = [...db.bookings.values()].some((b) => b.tradie_id === id && b.disputed_at && b.status !== "completed");
+  const gold = t.rating_avg >= 4.8 && t.jobs_completed >= 3 && !hasOpenDispute;
+  return { tradie_id: id, business_name: t.business_name, rating_avg: t.rating_avg, jobs_completed: t.jobs_completed, response_minutes: t.avg_response_minutes ?? null, verified: t.verified_status === "verified", licence_class: t.licences[0]?.class ?? null, licence_verified: t.licences[0]?.verified_status === "verified", insured: !!t.insurance?.public_liability_expiry, member_since: u?.created_at ?? null, strengths, gold, foundation: !!t.foundation };
 }
 function quoteView(q: any) { return { quote_id: q.id, job_id: q.job_id, tradie: tradieSummary(q.tradie_id), kind: q.kind, amount: q.amount, inclusions: q.inclusions, earliest_availability: q.earliest_availability, status: q.status, created_at: q.created_at, viewed_at: q.viewed_at }; }
 function quotesForJob(jobId: string) { return [...db.quotes.values()].filter((q) => q.job_id === jobId); }
@@ -222,7 +224,7 @@ function reviewsForBooking(bid: string) { return [...db.reviews.values()].filter
 function leadView(job: any, tradieId: string) {
   const tri = db.triages.get(job.id); const booking = [...db.bookings.values()].find((b) => b.job_id === job.id && b.tradie_id === tradieId);
   const owner = db.users.get(job.homeowner_id); const mine = quotesForJob(job.id).find((q) => q.tradie_id === tradieId);
-  return { job_id: job.id, category: job.category, suburb: job.suburb, full_address: booking ? job.full_address ?? null : null, urgency: job.urgency, status: job.status, job_spec: tri?.result.job_spec ?? null, why_pro_needed: tri?.result.why_pro_needed ?? null, required_licence_class: tri?.result.required_licence_class ?? null, photos: job.photos, vision: tri?.vision ?? null, stage_label: job.stage_label ?? null, stage_index: job.stage_index ?? null, certificate: job.certificate ?? null, certificate_required: CERT_REQ[job.category] ?? null, created_at: job.created_at, quote_count: quotesForJob(job.id).filter((q) => q.status !== "declined").length, quote_kind: job.quote_kind ?? null, assigned_to_me: job.assigned_tradie_id === tradieId, poster: { suburb: job.suburb, member_since: owner?.created_at ?? null, verified: true }, my_quote: mine ? quoteView(mine) : null };
+  return { job_id: job.id, category: job.category, suburb: job.suburb, full_address: booking ? job.full_address ?? null : null, urgency: job.urgency, status: job.status, job_spec: tri?.result.job_spec ?? null, why_pro_needed: tri?.result.why_pro_needed ?? null, required_licence_class: tri?.result.required_licence_class ?? null, photos: job.photos, vision: tri?.vision ?? null, stage_label: job.stage_label ?? null, stage_index: job.stage_index ?? null, certificate: job.certificate ?? null, certificate_required: CERT_REQ[job.category] ?? null, created_at: job.created_at, quote_count: quotesForJob(job.id).filter((q) => q.status !== "declined").length, quote_kind: job.quote_kind ?? null, assigned_to_me: job.assigned_tradie_id === tradieId, rebook_reserved: !!job.rebook_reserved, poster: { suburb: job.suburb, member_since: owner?.created_at ?? null, verified: true }, my_quote: mine ? quoteView(mine) : null };
 }
 function jobSummary(job: any) { const tri = db.triages.get(job.id); return { ...job, verdict: tri?.result.verdict ?? null, quote_count: quotesForJob(job.id).filter((q) => q.status !== "declined").length }; }
 
@@ -248,6 +250,13 @@ const MT_PATTERNS: Array<{ match: RegExp; title: string; stages: Array<{ categor
       { category: "electrical", label: "Reconnect power", description: "A power point and fixed wiring connection for the new hot water system needs a licensed electrician" },
     ] },
 ];
+function projectCrew(pr: any): string[] {
+  return pr.job_ids
+    .map((jid: string) => [...db.bookings.values()].find((b) => b.job_id === jid && b.status !== "cancelled"))
+    .filter(Boolean)
+    .map((b: any) => db.tradies.get(b.tradie_id)?.business_name)
+    .filter(Boolean);
+}
 function projectViewMock(pr: any): AnyMap {
   const stages = pr.job_ids.map((jid: string, i: number) => {
     const job = db.jobs.get(jid); if (!job) return null;
@@ -267,7 +276,7 @@ function projectViewMock(pr: any): AnyMap {
   const priced = stages.filter((st: any) => st.quote_amount !== null);
   return { id: pr.id, title: pr.title, kind: pr.kind, created_at: pr.created_at, stages,
     firm_total: priced.reduce((sum: number, st: any) => sum + st.quote_amount, 0),
-    all_priced: stages.length > 0 && priced.length === stages.length };
+    all_priced: stages.length > 0 && priced.length === stages.length, thread_id: pr.id, crew: projectCrew(pr) };
 }
 
 // ---------- marketplace ----------
@@ -283,7 +292,7 @@ function createJob(input: AnyMap) {
       const probe = gate(uid(), classify(input.description));
       if (probe.result.verdict === "NEEDS_LICENSED_PRO") {
         const pr = { id: uid(), homeowner_id: input.homeowner_id, title: hit.title, kind: "multi_trade", job_ids: [] as string[], created_at: input._at ?? nowIso() };
-        db.projects.set(pr.id, pr);
+        db.projects.set(pr.id, pr); db.threads.set(pr.id, { id: pr.id, project_id: pr.id });
         const results: any[] = [];
         hit.stages.forEach((st, i) => {
           const res = createSingleJobMock({ ...input, description: st.description, category: st.category,
@@ -321,8 +330,10 @@ function createSingleJobMock(input: AnyMap) {
   if (result.verdict === "DIY_SAFE" && !input.prefer_pro) { job.status = "DIY_RESOLVED"; }
   else {
     const pref = input.preferred_tradie_id ? db.tradies.get(input.preferred_tradie_id) : null;
-    assigned = (pref && tradieMatches(pref, job, result.required_licence_class) ? pref : null) ?? assignBest(job, result.required_licence_class);
-    if (assigned) job.assigned_tradie_id = assigned.user_id;
+    const fives = pref ? [] : [...db.reviews.values()].filter((r) => r.rater_role === "homeowner" && r.rater_id === input.homeowner_id && r.overall === 5).sort((a, b) => b.created_at.localeCompare(a.created_at)).map((r) => db.tradies.get(r.ratee_id)).filter(Boolean);
+    const reserved = fives.find((t: any) => tradieMatches(t, job, result.required_licence_class)) ?? null;
+    assigned = (pref && tradieMatches(pref, job, result.required_licence_class) ? pref : null) ?? reserved ?? assignBest(job, result.required_licence_class);
+    if (assigned) { job.assigned_tradie_id = assigned.user_id; if (reserved && assigned.user_id === reserved.user_id && !pref) job.rebook_reserved = true; }
     const pb = assigned ? priceBookLookup(job.category, `${text} ${result.job_spec?.title ?? ""}`) : null;
     if (assigned && pb) { job.quote_kind = "price_book"; job.price_book_key = pb.key; quote = createFirmQuote(job, assigned.user_id, "price_book", pb.amount, pb.label, at); job.status = "QUOTED"; }
     else { job.quote_kind = "custom"; job.status = "AWAITING_QUOTE"; }
@@ -351,7 +362,7 @@ function authResult(u: any) { const name = db.names.get(u.id) ?? u.email; return
 function seed() {
   const mkTradie = (id: string, email: string, name: string, biz: string, trades: string[], cls: string, pcs: string[], rating: number, jobs: number, resp: number) => {
     db.users.set(id, { id, role: "tradie", email, created_at: "2024-03-01T00:00:00.000Z", status: "active" });
-    db.tradies.set(id, { user_id: id, business_name: biz, abn: "12345678901", trades, licences: [{ number: "L1", class: cls, state: "NSW", verified_status: "verified", expiry: "2027-01-01" }], insurance: { public_liability_expiry: "2027-01-01" }, service_postcodes: pcs, rating_avg: rating, jobs_completed: jobs, verified_status: "verified", avg_response_minutes: resp });
+    db.tradies.set(id, { user_id: id, business_name: biz, abn: "12345678901", trades, licences: [{ number: "L1", class: cls, state: "NSW", verified_status: "verified", expiry: "2027-01-01" }], insurance: { public_liability_expiry: "2027-01-01" }, service_postcodes: pcs, rating_avg: rating, jobs_completed: jobs, verified_status: "verified", avg_response_minutes: resp, foundation: true });
     db.names.set(id, name); db.emailToId.set(email, id); db.demoIds.add(id);
   };
   db.users.set("home-1", { id: "home-1", role: "homeowner", email: "owner@example.com", created_at: "2025-06-01T00:00:00.000Z", status: "active" });
@@ -375,6 +386,20 @@ function seed() {
     { at: -75 * 60e3, d: "There's a burning smell coming from the switchboard" },
     { at: -20 * 60e3, d: "A power point in the bedroom is dead" },
   ]) createJob({ homeowner_id: "home-1", description: j.d, photos: ["p1"], suburb: "Newtown", postcode: "2042", state: "NSW", full_address: "1 Example St, Newtown NSW 2042", _at: new Date(t0 + j.at).toISOString() });
+  // One finished story: an electrical job quoted, booked, completed and rated
+  // 5 stars — seeds a platform review AND the 5-star rebook relationship
+  // (Alex's next electrical job reserves Sam first).
+  const doneJob = [...db.jobs.values()].find((j) => j.category === "electrical" && quotesForJob(j.id).some((q) => q.status === "offered"));
+  const doneQuote = doneJob ? quotesForJob(doneJob.id).find((q) => q.status === "offered") : null;
+  if (doneJob && doneQuote) {
+    doAccept({ sub: "home-1", role: "homeowner" }, doneQuote.id);
+    const bk = [...db.bookings.values()].find((b) => b.job_id === doneJob.id);
+    if (bk) {
+      doComplete(bk.id, "tradie");
+      doComplete(bk.id, "homeowner");
+      doReview({ sub: "home-1", role: "homeowner" }, bk.id, { overall: 5, dimensions: { communication: 5, quality: 5, price: 5 }, text: "Sam turned up on time, sorted it in half an hour and left the place spotless. Legend." });
+    }
+  }
 }
 // Lazy seed on first request — keeps this module side-effect-free so it can be
 // tree-shaken out of the production build.
@@ -456,7 +481,7 @@ export function handleRequest(method: string, path: string, body: any, authHeade
 
     // homeowner
     if (method === "POST" && seg[0] === "jobs" && seg.length === 1) { const u = need("homeowner"); if (!body?.description) return err(400, "description required"); const r = createJob({ ...body, homeowner_id: u.sub }); return ok({ job: jobSummary(r.job), triage: r.triage, overrides: r.overrides, model_verdict: r.model_verdict, assigned_tradie: r.assigned ? tradieSummary(r.assigned.user_id) : null, quote: r.quote ? quoteView(r.quote) : null, vision: r.vision, ballpark: r.ballpark, project: r.project ?? null }, 201); }
-    if (method === "POST" && seg[0] === "projects" && seg.length === 1) { const u = need("homeowner"); const title = String(body?.title ?? "").trim(); if (!title) return err(400, "Give the project a name"); const pr = { id: uid(), homeowner_id: u.sub, title, kind: "custom", job_ids: [], created_at: nowIso() }; db.projects.set(pr.id, pr); return ok(projectViewMock(pr), 201); }
+    if (method === "POST" && seg[0] === "projects" && seg.length === 1) { const u = need("homeowner"); const title = String(body?.title ?? "").trim(); if (!title) return err(400, "Give the project a name"); const pr = { id: uid(), homeowner_id: u.sub, title, kind: "custom", job_ids: [], created_at: nowIso() }; db.projects.set(pr.id, pr); db.threads.set(pr.id, { id: pr.id, project_id: pr.id }); return ok(projectViewMock(pr), 201); }
     if (method === "GET" && seg[0] === "projects" && seg.length === 1) { const u = need("homeowner"); return ok([...db.projects.values()].filter((pr) => pr.homeowner_id === u.sub).sort((a, b) => b.created_at.localeCompare(a.created_at)).map(projectViewMock)); }
     if (method === "GET" && seg[0] === "projects" && seg.length === 2) { const u = need("homeowner"); const pr = db.projects.get(seg[1]!); if (!pr || pr.homeowner_id !== u.sub) return err(404, "Project not found"); return ok(projectViewMock(pr)); }
     if (method === "POST" && seg[0] === "bookings" && seg[2] === "certificate") {
@@ -509,7 +534,7 @@ export function handleRequest(method: string, path: string, body: any, authHeade
     if (seg[0] === "threads" && seg[2] === "messages") {
       const u = need("homeowner", "tradie"); if (!db.threads.get(seg[1]!)) return err(404, "Thread not found");
       if (method === "GET") return ok([...db.messages.values()].filter((m) => m.thread_id === seg[1]).sort((a, b) => a.created_at.localeCompare(b.created_at)));
-      const m = mask(String(body?.body ?? "")); const msg = { id: uid(), thread_id: seg[1], sender_role: u.role === "tradie" ? "tradie" : "homeowner", body: m.body, redacted: m.redacted, created_at: nowIso() }; db.messages.set(msg.id, msg);
+      const m = mask(String(body?.body ?? "")); const senderName = u.role === "tradie" ? db.tradies.get(u.sub)?.business_name ?? u.name : (db.names.get(u.sub) ?? "Homeowner").replace(/ \(.*\)$/, ""); const msg = { id: uid(), thread_id: seg[1], sender_role: u.role === "tradie" ? "tradie" : "homeowner", sender_name: senderName, body: m.body, redacted: m.redacted, created_at: nowIso() }; db.messages.set(msg.id, msg);
       if (m.redacted) db.leakageLog.push({ thread_id: seg[1], sender_role: msg.sender_role, at: msg.created_at });
       return ok(msg, 201);
     }
@@ -551,7 +576,7 @@ function doAccept(u: any, quoteId: string): Res {
   const q = db.quotes.get(quoteId); if (!q) return err(404, "Quote not found"); const job = db.jobs.get(q.job_id); if (!job || job.homeowner_id !== u.sub) return err(403, "Not your job");
   q.status = "accepted"; job.status = "BOOKED";
   const booking: AnyMap = { id: uid(), job_id: job.id, quote_id: q.id, tradie_id: q.tradie_id, status: "scheduled", scheduled_for: q.earliest_availability, created_at: nowIso() }; db.bookings.set(booking.id, booking);
-  const fee = computeFee(q.amount);
+  const fee = computeFee(q.amount, q.tradie_id);
   db.payments.set(booking.id, { id: uid(), job_id: job.id, booking_id: booking.id, quote_id: q.id, tradie_id: q.tradie_id, currency: "aud", amount_authorized: q.amount, platform_fee: fee.platform_fee, trade_payout: fee.trade_payout, status: "authorized", provider: "mock", provider_ref: "mock_" + booking.id, created_at: nowIso() });
   return ok({ quote: quoteView(q), booking });
 }
@@ -566,7 +591,7 @@ function doFirmQuote(u: any, jobId: string, body: any): Res {
 function finalizeMock(b: any) {
   b.status = "completed"; const job = db.jobs.get(b.job_id); job.status = "COMPLETED";
   const p = paymentForBooking(b.id);
-  if (p && p.status === "authorized") { const extra = variationsForBooking(b.id).filter((v) => v.status === "approved").reduce((s, v) => s + v.amount, 0); const finalAmount = p.amount_authorized + extra; const fee = computeFee(finalAmount); p.status = "captured"; p.amount_captured = finalAmount; p.platform_fee = fee.platform_fee; p.trade_payout = fee.trade_payout; p.captured_at = nowIso(); }
+  if (p && p.status === "authorized") { const extra = variationsForBooking(b.id).filter((v) => v.status === "approved").reduce((s, v) => s + v.amount, 0); const finalAmount = p.amount_authorized + extra; const fee = computeFee(finalAmount, b.tradie_id); p.status = "captured"; p.amount_captured = finalAmount; p.platform_fee = fee.platform_fee; p.trade_payout = fee.trade_payout; p.captured_at = nowIso(); }
   return b;
 }
 function sweepMock() {

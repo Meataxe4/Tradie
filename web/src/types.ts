@@ -86,6 +86,8 @@ export interface JobSummary {
   created_at: string;
   verdict: Verdict | null;
   quote_count: number;
+  /** Assigned via 5-star rebook (first right of refusal). */
+  rebook_reserved?: boolean;
 }
 
 export interface Payment {
@@ -165,6 +167,10 @@ export interface ProjectView {
   stages: ProjectStage[];
   firm_total: number;
   all_priced: boolean;
+  /** Job-site group chat (thread id = project id). */
+  thread_id: string;
+  /** Business names of trades with a booked stage. */
+  crew: string[];
 }
 
 /** Guest triage (variant B): verdict + ballpark before any account exists. */
@@ -198,6 +204,10 @@ export interface TradieSummary {
   insured: boolean;
   member_since: string | null;
   strengths: string[];
+  /** Etsy-Star-Seller-style badge: 4.8+ average, real body of work, no open dispute. */
+  gold: boolean;
+  /** D13: foundation trade — 5% commission locked for life. */
+  foundation: boolean;
 }
 
 export interface Review {
@@ -279,6 +289,7 @@ export interface Lead {
   certificate?: JobCertificate | null;
   certificate_required?: { name: string; window: string } | null;
   created_at: string;
+  rebook_reserved?: boolean;
   quote_count: number;
   quote_kind: "price_book" | "custom" | null;
   assigned_to_me: boolean;
@@ -290,6 +301,7 @@ export interface Message {
   id: string;
   thread_id: string;
   sender_role: "homeowner" | "tradie";
+  sender_name?: string;
   body: string;
   redacted: boolean;
   created_at: string;

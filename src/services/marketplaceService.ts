@@ -109,6 +109,10 @@ export interface ProjectView {
   /** Sum of firm quotes so far (cents); indicative until every stage is priced. */
   firm_total: number;
   all_priced: boolean;
+  /** Job-site group chat (thread id = project id). */
+  thread_id: string;
+  /** Business names of trades with a booked stage — the chat crew. */
+  crew: string[];
 }
 
 export class MarketplaceService {
@@ -161,6 +165,9 @@ export class MarketplaceService {
       created_at: this.clock(),
     };
     this.store.projects.set(project.id, project);
+    // Job-site group chat: one thread per project. The homeowner is in from the
+    // start; each trade joins the moment their stage is booked.
+    this.store.threads.set(project.id, { id: project.id, project_id: project.id });
 
     const results: CreateJobResult[] = [];
     for (let i = 0; i < plan.stages.length; i++) {
@@ -268,10 +275,18 @@ export class MarketplaceService {
     } else {
       // §3 assign ONE vetted trade (assigned, not auctioned). Book-again: if the
       // customer asked for a specific trade and they're still eligible, they win.
+      // Otherwise, a trade this customer previously rated 5 stars gets first
+      // right of refusal — decline-and-reassign falls back to normal matching.
       const preferred = input.preferred_tradie_id ? this.store.tradies.get(input.preferred_tradie_id) : undefined;
+      const rebook = !preferred ? this.fiveStarRebookCandidates(input.homeowner_id) : [];
+      const reserved = !preferred && rebook.length ? assignBestTradie(job, result, rebook, { now }) : null;
       assigned = (preferred && assignBestTradie(job, result, [preferred], { now })) ||
+        reserved ||
         assignBestTradie(job, result, this.store.allTradies(), { now });
-      if (assigned) job.assigned_tradie_id = assigned.user_id;
+      if (assigned) {
+        job.assigned_tradie_id = assigned.user_id;
+        if (reserved && assigned.user_id === reserved.user_id) job.rebook_reserved = true;
+      }
 
       // Price-book match → instant firm quote; otherwise route as a custom quote.
       const pb = assigned
@@ -347,6 +362,25 @@ export class MarketplaceService {
     this.store.quotes.set(quote.id, quote);
     this.store.threads.set(quote.id, { id: quote.id, quote_id: quote.id, job_id: job.id });
     return quote;
+  }
+
+  /**
+   * Trades this homeowner has previously rated 5 stars (most recent first).
+   * They earn first right of refusal on the customer's next matching job.
+   */
+  private fiveStarRebookCandidates(homeownerId: string): TradieProfile[] {
+    const fives = [...this.store.reviews.values()]
+      .filter((r) => r.rater_role === "homeowner" && r.rater_id === homeownerId && r.overall === 5)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+    const seen = new Set<string>();
+    const out: TradieProfile[] = [];
+    for (const r of fives) {
+      if (seen.has(r.ratee_id)) continue;
+      seen.add(r.ratee_id);
+      const t = this.store.tradies.get(r.ratee_id);
+      if (t) out.push(t);
+    }
+    return out;
   }
 
   /**
@@ -487,7 +521,7 @@ export class MarketplaceService {
   async suggestReply(args: { thread_id: string; role: "homeowner" | "tradie" }): Promise<ReplySuggestion> {
     const thread = this.store.threads.get(args.thread_id);
     if (!thread) throw new Error("Thread not found");
-    const job = this.store.jobs.get(thread.job_id);
+    const job = thread.job_id ? this.store.jobs.get(thread.job_id) : undefined;
     const triageId = job ? this.store.triageByJob.get(job.id) : undefined;
     const triage = triageId ? this.store.triages.get(triageId) : undefined;
     const recent = this.store
@@ -565,7 +599,7 @@ export class MarketplaceService {
       job_id: job.id,
       tradie_id: quote.tradie_id,
     });
-    const fee = computeFee(quote.amount);
+    const fee = computeFee(quote.amount, { foundation: this.store.tradies.get(quote.tradie_id)?.foundation });
     const payment: Payment = {
       id: uuidv4(),
       job_id: job.id,
@@ -686,6 +720,7 @@ export class MarketplaceService {
   postMessage(args: {
     thread_id: string;
     sender_role: MessageSenderRole;
+    sender_name?: string;
     body: string;
   }): Message {
     const thread = this.store.threads.get(args.thread_id);
@@ -695,6 +730,7 @@ export class MarketplaceService {
       id: uuidv4(),
       thread_id: args.thread_id,
       sender_role: args.sender_role,
+      sender_name: args.sender_name,
       body,
       redacted,
       created_at: this.clock(),
@@ -742,12 +778,12 @@ export class MarketplaceService {
     const job = this.mustJob(booking.job_id);
     this.transitionJob(job, "COMPLETED");
 
-    // §3 capture on completion: base price + approved variations; 5% fee taken
-    // server-side, remainder to the trade.
+    // §3 capture on completion: base price + approved variations; commission
+    // (8% standard / 5% foundation, D13) taken server-side, remainder to the trade.
     const payment = this.paymentForBooking(booking.id);
     if (payment && payment.status === "authorized") {
       const finalAmount = payment.amount_authorized + this.approvedVariationTotal(booking.id);
-      const fee = computeFee(finalAmount);
+      const fee = computeFee(finalAmount, { foundation: this.store.tradies.get(booking.tradie_id)?.foundation });
       this.payments.capture(payment.provider_ref, finalAmount, fee.platform_fee);
       payment.status = "captured";
       payment.amount_captured = finalAmount;
@@ -888,6 +924,7 @@ export class MarketplaceService {
       created_at: this.clock(),
     };
     this.store.projects.set(project.id, project);
+    this.store.threads.set(project.id, { id: project.id, project_id: project.id });
     return project;
   }
 
@@ -935,6 +972,12 @@ export class MarketplaceService {
       .sort((a, b) => a.stage_index - b.stage_index);
 
     const priced = stages.filter((st) => st.quote_amount !== null);
+    // Job-site chat crew: the homeowner plus every trade with a booked stage.
+    const crew = project.job_ids
+      .map((jid) => [...this.store.bookings.values()].find((b) => b.job_id === jid && b.status !== "cancelled"))
+      .filter((b): b is NonNullable<typeof b> => Boolean(b))
+      .map((b) => this.store.tradies.get(b.tradie_id)?.business_name)
+      .filter((n): n is string => Boolean(n));
     return {
       id: project.id,
       title: project.title,
@@ -943,6 +986,8 @@ export class MarketplaceService {
       stages,
       firm_total: priced.reduce((sum, st) => sum + (st.quote_amount ?? 0), 0),
       all_priced: stages.length > 0 && priced.length === stages.length,
+      thread_id: project.id,
+      crew,
     };
   }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeFee, PLATFORM_FEE_BPS } from "./fees.js";
+import { computeFee, FOUNDATION_FEE_BPS, PLATFORM_FEE_BPS } from "./fees.js";
 import { MockPaymentProvider } from "./provider.js";
 import { MemoryStore } from "../store/memoryStore.js";
 import { MarketplaceService } from "../services/marketplaceService.js";
@@ -10,14 +10,18 @@ import { seed } from "../seed.js";
 const NOW = "2026-07-04T00:00:00.000Z";
 
 describe("fee math (§6)", () => {
-  it("is 5%, in whole cents, server-side", () => {
-    expect(PLATFORM_FEE_BPS).toBe(500);
-    // Worked example from the brief: $1,650.00 -> $82.50 fee, $1,567.50 payout.
-    expect(computeFee(165000)).toEqual({ amount: 165000, platform_fee: 8250, trade_payout: 156750 });
+  it("is 8% standard / 5% foundation (D13), in whole cents, server-side", () => {
+    expect(PLATFORM_FEE_BPS).toBe(800);
+    expect(FOUNDATION_FEE_BPS).toBe(500);
+    // $1,650.00 -> standard $132.00 fee, $1,518.00 payout.
+    expect(computeFee(165000)).toEqual({ amount: 165000, platform_fee: 13200, trade_payout: 151800, fee_bps: 800 });
+    // Foundation trade keeps the launch worked example: $82.50 fee, $1,567.50 payout.
+    expect(computeFee(165000, { foundation: true }))
+      .toEqual({ amount: 165000, platform_fee: 8250, trade_payout: 156750, fee_bps: 500 });
   });
   it("rounds to the nearest cent", () => {
-    expect(computeFee(18500)).toEqual({ amount: 18500, platform_fee: 925, trade_payout: 17575 });
-    expect(computeFee(9999).platform_fee).toBe(500); // 499.95 -> 500
+    expect(computeFee(18500)).toEqual({ amount: 18500, platform_fee: 1480, trade_payout: 17020, fee_bps: 800 });
+    expect(computeFee(9999).platform_fee).toBe(800); // 799.92 -> 800
   });
   it("rejects non-integer / negative amounts", () => {
     expect(() => computeFee(100.5)).toThrow();

@@ -165,3 +165,61 @@ describe("'Thanks, but I want a professional' (prefer_pro)", () => {
     expect(assigned).not.toBeNull();
   });
 });
+
+describe("Meeting-1 product round (D13, gold, rebook, job-site chat)", () => {
+  it("a 5-star review reserves that trade for the customer's next matching job", async () => {
+    const { store, market } = build();
+    const first = await market.createJob({
+      homeowner_id: "home-1",
+      description: "A single power point in the bedroom is dead",
+      photos: [], suburb: "Newtown", postcode: "2042", state: "NSW",
+    });
+    market.acceptQuote(first.quote!.id);
+    const booking = [...store.bookings.values()].find((b) => b.job_id === first.job.id)!;
+    market.completeBooking(booking.id, "tradie");
+    market.completeBooking(booking.id, "homeowner");
+    market.submitReview({
+      booking_id: booking.id, rater_role: "homeowner", rater_id: "home-1",
+      overall: 5, dimensions: { communication: 5 }, text: "Great work",
+    });
+
+    const next = await market.createJob({
+      homeowner_id: "home-1",
+      description: "A ceiling fan in the lounge won't turn on",
+      photos: [], suburb: "Newtown", postcode: "2042", state: "NSW",
+    });
+    expect(next.assigned?.user_id).toBe(booking.tradie_id);
+    expect(next.job.rebook_reserved).toBe(true);
+  });
+
+  it("foundation trades pay 5%, standard trades pay 8% (D13)", async () => {
+    const { store, market } = build();
+    const created = await market.createJob({
+      homeowner_id: "home-1",
+      description: "A single power point in the bedroom is dead",
+      photos: [], suburb: "Newtown", postcode: "2042", state: "NSW",
+    });
+    market.acceptQuote(created.quote!.id);
+    const payment = [...store.payments.values()].find((p) => p.job_id === created.job.id)!;
+    // Seeded tradies are foundation: 5% of the quote.
+    expect(payment.platform_fee).toBe(Math.round(created.quote!.amount * 0.05));
+  });
+
+  it("a multi-trade project opens a job-site group thread with named senders", async () => {
+    const { store, market } = build();
+    const created = await market.createJob({
+      homeowner_id: "home-1",
+      description: "Water is leaking through the ceiling and the plasterboard needs replacing and repainting",
+      photos: [], suburb: "Newtown", postcode: "2042", state: "NSW",
+    });
+    const project = created.project!;
+    expect(store.threads.get(project.id)?.project_id).toBe(project.id);
+    const msg = market.postMessage({
+      thread_id: project.id, sender_role: "homeowner", sender_name: "Alex",
+      body: "Hi all — call me on 0412 345 678",
+    });
+    expect(msg.sender_name).toBe("Alex");
+    expect(msg.redacted).toBe(true); // masking stays on in the group channel
+    expect(project.thread_id).toBe(project.id);
+  });
+});
