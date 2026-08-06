@@ -20,6 +20,7 @@ import type { Role } from "../domain/entities.js";
 import { AuthService, AuthError } from "../auth/authService.js";
 import { verifyToken, TokenError } from "../auth/tokens.js";
 import { estimateBallpark, type QuoteAssistantClient } from "../quoting/quoteAssistant.js";
+import { detectMultiTradePlan } from "../domain/multiTrade.js";
 
 export interface AppDeps {
   store: MemoryStore;
@@ -551,7 +552,13 @@ export function createApp(deps: AppDeps) {
       triage.verdict === "NEEDS_LICENSED_PRO"
         ? estimateBallpark(triage.category, triage.job_spec?.urgency ?? "routine", triage.job_spec?.symptoms?.length ?? 0)
         : null;
-    res.json({ triage, vision: outcome.vision, ballpark });
+    // Tell the guest up front when the problem spans several trades — the same
+    // probe job creation uses, so the promise matches what signup delivers.
+    const plan = triage.verdict === "NEEDS_LICENSED_PRO" ? detectMultiTradePlan(description) : null;
+    const multi_trade = plan
+      ? { title: plan.title, trades: plan.stages.map((s) => s.category) }
+      : null;
+    res.json({ triage, vision: outcome.vision, ballpark, multi_trade });
   }));
 
   // POST /triage — internal: run triage without persisting a job (§8 shared).

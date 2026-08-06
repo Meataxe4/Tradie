@@ -236,7 +236,7 @@ const CERT_REQ: Record<string, { name: string; window: string }> = {
   hvac: { name: "Electrical/refrigerant compliance certificate", window: "within 7 days of completion" },
 };
 const MT_PATTERNS: Array<{ match: RegExp; title: string; stages: Array<{ category: string; label: string; description: string }> }> = [
-  { match: /(ceiling|roof).{0,40}(leak|water (stain|damage|dripping))|(leak|water).{0,40}(through|from|in) the (ceiling|roof)|water stain on the ceiling/i,
+  { match: /(ceiling|roof).{0,40}(leak|water (stain|damage|dripping))|(leak|water|drip).{0,40}(through|from|in|into|under) (the |my |our )?(ceiling|roof)|water stain on the ceiling|(roof|ceiling) (is |was )?(leaking|dripping)/i,
     title: "Ceiling leak — find, fix and make good",
     stages: [
       { category: "plumbing_water", label: "Stop the leak", description: "Find and repair the leaking pipe above the ceiling" },
@@ -428,7 +428,9 @@ export function handleRequest(method: string, path: string, body: any, authHeade
       const photoCount = (body?.photos ?? []).length;
       const vision = { photos: photoCount, captions: captions.length, analyzed: false, mode: photoCount > 0 ? "preview" : "none" };
       const ballpark = result.verdict === "NEEDS_LICENSED_PRO" ? qBallpark(result.category, result.job_spec?.urgency ?? "routine", result.job_spec?.symptoms?.length ?? 0) : null;
-      return ok({ triage: result, vision, ballpark });
+      const mtHit = result.verdict === "NEEDS_LICENSED_PRO" ? MT_PATTERNS.find((pt) => pt.match.test(description)) : null;
+      const multi_trade = mtHit ? { title: mtHit.title, trades: mtHit.stages.map((st) => st.category) } : null;
+      return ok({ triage: result, vision, ballpark, multi_trade });
     }
     if (method === "POST" && seg[0] === "auth" && seg[1] === "register") return doRegister(body);
     if (method === "POST" && seg[0] === "auth" && seg[1] === "login") return doLogin(body);

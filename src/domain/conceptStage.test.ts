@@ -116,3 +116,17 @@ describe("certification layer", () => {
       .toThrow(/isn't yours/);
   });
 });
+
+describe("multi-trade detection handles natural phrasings (Blake QA, 6 Aug)", () => {
+  it.each([
+    "Water Leaking from Roof",
+    "water leaking from the roof",
+    "my roof is leaking",
+    "there's water dripping from the ceiling",
+    "the ceiling is leaking near the light",
+  ])("'%s' plans the multi-trade ceiling-leak project", (phrase) => {
+    const plan = detectMultiTradePlan(phrase);
+    expect(plan).not.toBeNull();
+    expect(plan?.stages.map((s) => s.category)).toEqual(["plumbing_water", "carpentry", "handyman"]);
+  });
+});

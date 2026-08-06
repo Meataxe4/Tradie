@@ -103,6 +103,19 @@ export function ProblemFirst() {
         <h1 className="page-title">{t.job_spec?.title ?? "Here's what this looks like"}</h1>
         <p className="page-sub">{t.user_message}</p>
 
+        {preview.multi_trade && (
+          <div className="card" style={{ borderColor: "var(--accent)" }}>
+            <h3>{Icon.tools}This looks like more than one trade</h3>
+            <p className="notice" style={{ margin: 0 }}>
+              <b>{preview.multi_trade.title}</b> — likely{" "}
+              <b>{preview.multi_trade.trades.map((c) => CATEGORY_META[c]?.label ?? c).join(", ")}</b>, in that
+              order. When you create your account we'll set the whole job up as one project: each trade
+              quotes their stage, and everyone shares a <b>job-site chat</b> so the work lines up like it
+              would on site.
+            </p>
+          </div>
+        )}
+
         {preview.ballpark && (
           <div className="ballpark">
             <span className="bp-label">Typical range for this kind of job</span>
@@ -294,7 +307,7 @@ function GuestSignup({ heading, sub, description, photos, preferPro, onErr }: {
         prefer_pro: preferPro,
         suburb, postcode, state,
       });
-      nav(res.job.status === "DIY_RESOLVED" ? "/jobs" : `/jobs/${res.job.id}`);
+      nav(res.project ? `/projects/${res.project.id}` : res.job.status === "DIY_RESOLVED" ? "/jobs" : `/jobs/${res.job.id}`);
     } catch (e) { onErr((e as Error).message); }
     finally { setBusy(false); }
   };
