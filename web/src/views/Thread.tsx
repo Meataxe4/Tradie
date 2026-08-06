@@ -45,7 +45,7 @@ export function Thread({ threadId }: { threadId: string }) {
           {messages.map((m) => (
             <div className={`msg ${m.sender_role}`} key={m.id}>
               <div className="meta">
-                {m.sender_role}
+                {m.sender_name ?? m.sender_role}
                 {m.redacted && <span className="flag" title="Contact details were removed">· masked</span>}
               </div>
               {m.body}

@@ -76,6 +76,7 @@ export function seed(store: MemoryStore, now = "2026-07-04T00:00:00.000Z"): void
     jobs_completed: 40,
     verified_status: "verified",
     avg_response_minutes: 20,
+    foundation: true, // D13: 5% locked for life
   });
 
   store.users.set("plumb-1", {
@@ -105,6 +106,7 @@ export function seed(store: MemoryStore, now = "2026-07-04T00:00:00.000Z"): void
     jobs_completed: 25,
     verified_status: "verified",
     avg_response_minutes: 35,
+    foundation: true, // D13: 5% locked for life
   });
 
   store.users.set("chip-1", {
@@ -134,6 +136,7 @@ export function seed(store: MemoryStore, now = "2026-07-04T00:00:00.000Z"): void
     jobs_completed: 31,
     verified_status: "verified",
     avg_response_minutes: 28,
+    foundation: true, // D13: 5% locked for life
   });
 }
 
@@ -178,8 +181,32 @@ export async function seedDemoJobs(store: MemoryStore): Promise<void> {
   ];
 
   const now = Date.now();
+  const created: Awaited<ReturnType<typeof market.createJob>>[] = [];
   for (const d of demo) {
     cursor = now + d.at;
-    await market.createJob({ ...base, description: d.description });
+    created.push(await market.createJob({ ...base, description: d.description }));
+  }
+
+  // One finished story: the burst-pipe job was quoted, booked, completed and
+  // rated 5 stars. This seeds (a) a review on the platform and (b) a 5-star
+  // rebook relationship — Alex's next plumbing job reserves Pat first.
+  const done = created.find((c) => c.job.category === "electrical" && c.quote);
+  if (done?.quote) {
+    cursor = now - 2 * 3600e3;
+    market.acceptQuote(done.quote.id);
+    const booking = [...store.bookings.values()].find((b) => b.job_id === done.job.id);
+    if (booking) {
+      cursor = now - 1 * 3600e3;
+      market.completeBooking(booking.id, "tradie");
+      market.completeBooking(booking.id, "homeowner");
+      market.submitReview({
+        booking_id: booking.id,
+        rater_role: "homeowner",
+        rater_id: "home-1",
+        overall: 5,
+        dimensions: { communication: 5, quality: 5, price: 5 },
+        text: "Sam turned up on time, sorted it in half an hour and left the place spotless. Legend.",
+      });
+    }
   }
 }

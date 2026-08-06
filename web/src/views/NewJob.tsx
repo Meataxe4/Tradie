@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import type { CreateJobResponse } from "../types";
-import { Icon, money } from "../ui";
+import { CATEGORY_META, Icon, money } from "../ui";
 import { TriageView } from "./TriageView";
 import { storage } from "../storage";
 
@@ -193,6 +193,8 @@ export function NewJob() {
       ? "We need a little more detail before we can route this safely — the questions below tell us exactly what to check."
       : !isPro
       ? "Good news — this is a safe DIY job, so there's nothing to book."
+      : result.job.rebook_reserved && result.assigned_tradie
+        ? `Good news — we've reserved this for ${result.assigned_tradie.business_name}. You rated them 5 stars last time, so they get first crack at it.${result.quote ? " Their firm price is ready — accept in a tap." : " They'll send you a firm quote shortly."}`
       : result.quote
         ? `We've assigned ${result.assigned_tradie?.business_name ?? `a vetted ${trade}`} and prepared a firm price from our price book. Review and accept in a tap.`
         : result.assigned_tradie
@@ -221,9 +223,15 @@ export function NewJob() {
         {result.project && (
           <div className="card" style={{ borderColor: "var(--accent)" }}>
             <h3>{Icon.tools}One problem, {result.project.stages.length} trades — we've sorted the order</h3>
+            <p className="notice" style={{ marginBottom: 8 }}>
+              This looks like more than one trade:{" "}
+              <b>{Array.from(new Set(result.project.stages.map((s) => CATEGORY_META[s.category]?.label ?? s.category))).join(", ")}</b>.
+              We've split it into sequenced stages — each gets its own vetted trade and firm price, and you
+              book them in order, all in one place.
+            </p>
             <p className="notice" style={{ marginBottom: 12 }}>
-              This needs more than one trade, so we've split it into sequenced stages. Each stage gets its own
-              vetted trade and firm price — you book them in order, all in one place.
+              As each trade is booked they join your <b>job-site chat</b> — one channel where you and all
+              your trades line up the work, like they would on site.
             </p>
             {result.project.stages.map((s) => (
               <div className="q-row" key={s.job_id}>
