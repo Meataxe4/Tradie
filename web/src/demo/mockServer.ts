@@ -45,7 +45,7 @@ function classify(desc: string): AnyMap {
   }
   if (has("gas hot water", "gas cooktop", "gas heater", "gas appliance"))
     return { verdict: "NEEDS_LICENSED_PRO", category: "gas", regulated_domains: ["gas"], safety_flags: ["none"], recommended_trade: "gasfitter", required_licence_class: "Gasfitting licence", diy_guidance: null, why_pro_needed: "Gas work is licensed — it must be done by a licensed gasfitter.", job_spec: spec("Gas appliance fault", "A gas appliance needs a licensed gasfitter.", ["Gas appliance not operating correctly"], ["Is the pilot light staying lit?"], "routine"), user_message: "This needs a licensed gasfitter — gas work isn't a DIY job.", ...base };
-  if (has("burst pipe", "leaking pipe", "pipe leak", "ceiling leak", "leaking through the ceiling", "leak in the ceiling", "water stain on the ceiling", "hot water system", "no hot water", "water leak", "water leaking", "leak under", "leaking under", "sink is leaking", "leaking sink", "water under the sink"))
+  if (has("burst pipe", "leaking pipe", "pipe leak", "ceiling leak", "leaking through the ceiling", "leak in the ceiling", "water stain on the ceiling", "hot water system", "no hot water", "water leak", "water leaking", "leak under", "leaking under", "sink is leaking", "leaking sink", "water under the sink", "damp", "moisture", "water damage", "water stain", "wet patch", "water is coming", "water coming in", "pouring in"))
     return { verdict: "NEEDS_LICENSED_PRO", category: "plumbing_water", regulated_domains: ["plumbing_water"], safety_flags: ["none"], recommended_trade: "plumber", required_licence_class: "Plumbing contractor licence", diy_guidance: null, why_pro_needed: "Water/sewer-connected plumbing is licensed work — it needs a licensed plumber.", job_spec: spec("Water-connected plumbing fault", "A water/sewer-connected plumbing issue needs a licensed plumber.", ["Leak or fault on water-connected plumbing"], ["Have you turned off the water at the mains?"], "urgent"), user_message: "This needs a licensed plumber — water-connected plumbing isn't a DIY job.", ...base };
   if (has("mixer", "tap", "cistern", "toilet"))
     return { verdict: "NEEDS_LICENSED_PRO", category: "plumbing_water", regulated_domains: ["plumbing_water"], safety_flags: ["none"], recommended_trade: "plumber", required_licence_class: "Plumbing contractor licence", diy_guidance: null, why_pro_needed: "Water-connected plumbing is licensed work — it needs a licensed plumber.", job_spec: spec("Tap / toilet plumbing", "A water-connected fixture needs a licensed plumber.", ["Fixture not working correctly"], [], "routine"), user_message: "This needs a licensed plumber. Here's your firm price.", ...base };
@@ -235,21 +235,49 @@ const CERT_REQ: Record<string, { name: string; window: string }> = {
   plumbing_water: { name: "Plumbing Certificate of Compliance", window: "on completion" },
   hvac: { name: "Electrical/refrigerant compliance certificate", window: "within 7 days of completion" },
 };
-const MT_PATTERNS: Array<{ match: RegExp; title: string; stages: Array<{ category: string; label: string; description: string }> }> = [
-  { match: /(ceiling|roof).{0,40}(leak|water (stain|damage|dripping))|(leak|water|drip).{0,40}(through|from|in|into|under) (the |my |our )?(ceiling|roof)|water stain on the ceiling|(roof|ceiling) (is |was )?(leaking|dripping)/i,
-    title: "Ceiling leak — find, fix and make good",
-    stages: [
-      { category: "plumbing_water", label: "Stop the leak", description: "Find and repair the leaking pipe above the ceiling" },
-      { category: "carpentry", label: "Repair the ceiling", description: "Replace the water-damaged plasterboard ceiling section" },
-      { category: "handyman", label: "Patch & paint", description: "Patch, sand and repaint the repaired ceiling section" },
-    ] },
-  { match: /replace.{0,30}(electric )?hot water (system|service|heater)|hot water (system|service|heater).{0,30}replace/i,
-    title: "Hot water system replacement",
-    stages: [
+// Multi-trade INFERENCE (mirrors src/domain/multiTrade.ts): detects the trade
+// domains a description touches, adds implied follow-on trades (water into
+// building fabric means repair + repaint even if unsaid), and orders stages
+// cause -> structure -> finish. The live model (M1) replaces this heuristic.
+const MT_WATER = /(leak|leaking|leaked|drip|dripping|burst|flood|flooded|flooding|overflow(ing)?|water damage|damp|moisture|wet (patch|spot|mark)|water (is )?(coming|getting|pouring|running))/i;
+const MT_FABRIC = /(roof|ceiling|wall|floor(board)?s?|plasterboard|gyprock|cornice|skirting|timber|joist|eaves|cabinetry|cupboard)/i;
+const MT_ELEC = /(power ?point|outlet|gpo|light switch|downlight|light fitting|wiring|electrical|electric(?! hot water)|fuse|switchboard|ceiling fan|new (light|power))/i;
+const MT_GAS = /\bgas\b/i;
+const MT_CARP = /(plasterboard|gyprock|stud|joist|door frame|floorboard|deck|cornice|skirting|rotted|rotten|sagging|hole in the (wall|ceiling)|carpent)/i;
+const MT_PAINT = /\b(paint|repaint|painting|repainting)\b/i;
+const MT_TILE = /(re-?tile|tiles?|tiling|grout)/i;
+const MT_HVAC = /(air ?con|air conditioning|ducted|split system)/i;
+const MT_FIXTURE = /(tap|mixer|toilet|cistern|sink|basin|shower|drain|pipe|hot water|plumb)/i;
+const MT_RENO = /(renovat|remodel|refit|new (kitchen|bathroom|laundry|ensuite))/i;
+function detectMT(description: string): { title: string; stages: Array<{ category: string; label: string; description: string }> } | null {
+  const t = description;
+  if (/replace.{0,30}(electric )?hot water (system|service|heater)|hot water (system|service|heater).{0,30}replace/i.test(t)) {
+    return { title: "Hot water system replacement", stages: [
       { category: "plumbing_water", label: "Swap the unit", description: "Disconnect the old hot water system and install the replacement unit" },
       { category: "electrical", label: "Reconnect power", description: "A power point and fixed wiring connection for the new hot water system needs a licensed electrician" },
-    ] },
-];
+    ] };
+  }
+  if (MT_WATER.test(t) && MT_FABRIC.test(t)) {
+    const loc = /roof/i.test(t) ? "roof" : /ceiling/i.test(t) ? "ceiling" : /wall/i.test(t) ? "wall" : /floor/i.test(t) ? "floor" : "affected area";
+    return { title: `Water leak (${loc}) — find, fix and make good`, stages: [
+      { category: "plumbing_water", label: "Stop the leak", description: `Find and repair the source of the water getting into the ${loc}` },
+      { category: "carpentry", label: "Repair the damage", description: `Replace the water-damaged ${loc === "floor" ? "flooring" : "plasterboard"} once the ${loc} is dry` },
+      { category: "handyman", label: "Patch & paint", description: `Patch, sand and repaint the repaired ${loc} section` },
+    ] };
+  }
+  const reno = MT_RENO.test(t);
+  const domains: Array<{ category: string; label: string; description: string }> = [];
+  if (MT_GAS.test(t)) domains.push({ category: "gas", label: "Gas work", description: "Gas supply or appliance work — licensed gasfitter required" });
+  if (MT_WATER.test(t) || MT_FIXTURE.test(t)) domains.push({ category: "plumbing_water", label: "Plumbing", description: "Water-connected plumbing work — licensed plumber required" });
+  if (MT_ELEC.test(t)) domains.push({ category: "electrical", label: "Electrical", description: "Fixed wiring or fittings — licensed electrician required" });
+  if (MT_HVAC.test(t)) domains.push({ category: "hvac", label: "Heating & cooling", description: "Air-conditioning work — licensed technician required" });
+  if (MT_CARP.test(t) || reno) domains.push({ category: "carpentry", label: "Carpentry & structure", description: "Framing, sheeting or structural carpentry work" });
+  if (MT_TILE.test(t)) domains.push({ category: "handyman", label: "Tiling", description: "Tiling and grouting for the affected area" });
+  if (MT_PAINT.test(t)) domains.push({ category: "handyman", label: "Patch & paint", description: "Patch, sand and paint to finish" });
+  const seenCat = new Set<string>();
+  const stages = domains.filter((d) => (seenCat.has(d.category) ? false : (seenCat.add(d.category), true)));
+  return stages.length >= 2 ? { title: reno ? "Renovation — trades sequenced" : "Multi-trade job — sequenced", stages } : null;
+}
 function projectCrew(pr: any): string[] {
   return pr.job_ids
     .map((jid: string) => [...db.bookings.values()].find((b) => b.job_id === jid && b.status !== "cancelled"))
@@ -287,7 +315,7 @@ function createFirmQuote(job: any, tradieId: string, kind: string, amount: numbe
 function createJob(input: AnyMap) {
   // Concept-stage: decompose a multi-trade problem into a sequenced project.
   if (!input.category && !input.project_id && !input._stage) {
-    const hit = MT_PATTERNS.find((mp) => mp.match.test(input.description));
+    const hit = detectMT(input.description);
     if (hit) {
       const probe = gate(uid(), classify(input.description));
       if (probe.result.verdict === "NEEDS_LICENSED_PRO") {
@@ -428,7 +456,7 @@ export function handleRequest(method: string, path: string, body: any, authHeade
       const photoCount = (body?.photos ?? []).length;
       const vision = { photos: photoCount, captions: captions.length, analyzed: false, mode: photoCount > 0 ? "preview" : "none" };
       const ballpark = result.verdict === "NEEDS_LICENSED_PRO" ? qBallpark(result.category, result.job_spec?.urgency ?? "routine", result.job_spec?.symptoms?.length ?? 0) : null;
-      const mtHit = result.verdict === "NEEDS_LICENSED_PRO" ? MT_PATTERNS.find((pt) => pt.match.test(description)) : null;
+      const mtHit = result.verdict === "NEEDS_LICENSED_PRO" ? detectMT(description) : null;
       const multi_trade = mtHit ? { title: mtHit.title, trades: mtHit.stages.map((st) => st.category) } : null;
       return ok({ triage: result, vision, ballpark, multi_trade });
     }

@@ -160,3 +160,12 @@ describe("QA regressions from partner review", () => {
     expect(out.gate.triage.recommended_trade).toBe("plumber");
   });
 });
+
+describe("water-ingress phrasings classify as regulated plumbing (Blake QA round 2)", () => {
+  it.each(["There's a damp patch spreading on the lounge room wall", "water damage on the ceiling", "moisture coming through the floor"])(
+    "'%s' routes to a licensed plumber", async (phrase) => {
+      const out = await svc().triage({ description: phrase, photoCount: 0 });
+      expect(out.gate.triage.verdict).toBe("NEEDS_LICENSED_PRO");
+      expect(out.gate.triage.category).toBe("plumbing_water");
+    });
+});
