@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
 import type { ProjectView } from "../types";
 import { CATEGORY_META, Icon, Spinner, money, statusLabel } from "../ui";
+import { Thread } from "./Thread";
 
 /**
  * Concept-stage: the customer's one-flow view of a project — sequenced stages,
@@ -87,6 +88,25 @@ export function ProjectDetail() {
           your home logbook — handy at sale time and for insurance.
         </p>
       )}
+
+      <div style={{ marginTop: 22 }}>
+        <p className="section-h" style={{ textAlign: "left" }}>Job-site chat</p>
+        <p className="notice" style={{ marginBottom: 10 }}>
+          One channel for the whole job — you and every booked trade, so they can line up their work and
+          priorities like they would on site. Trades join as their stage is booked.
+        </p>
+        {project.crew.length > 0 ? (
+          <div className="crew-strip">
+            <span className="crew-pill">You</span>
+            {project.crew.map((c) => <span className="crew-pill" key={c}>{c}</span>)}
+          </div>
+        ) : (
+          <p style={{ fontSize: 13, color: "var(--muted)", margin: "0 0 10px" }}>
+            No trades booked yet — accept a stage quote and they'll appear here.
+          </p>
+        )}
+        <Thread threadId={project.thread_id} />
+      </div>
 
       <div className="row wrap" style={{ marginTop: 18 }}>
         <Link className="btn ghost" to={`/new?project=${project.id}`}>+ Add another job to this project</Link>

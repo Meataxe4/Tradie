@@ -256,7 +256,7 @@ export function ProblemFirst() {
           <h3 style={{ margin: "6px 0" }}>{Icon.tools}On the tools? Work's waiting.</h3>
           <p className="notice" style={{ margin: 0 }}>
             Jobs arrive fully specced — photos, scope, access notes. Your Copilot drafts the quote,
-            the customer's money is held before you start, and you're paid on completion. 5% only when you're paid.
+            the customer's money is held before you start, and you're paid on completion. 8% only when you're paid — founding trades keep 5% for life.
           </p>
         </div>
         <div className="tp-actions">

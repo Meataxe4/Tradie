@@ -45,7 +45,7 @@ export function Admin() {
       {/* KPI stat tiles */}
       <div className="kpis">
         <div className="kpi"><span className="k-label">GMV (captured)</span><span className="k-val">{money(s.gmv)}</span><span className="k-sub">jobs paid out</span></div>
-        <div className="kpi"><span className="k-label">Platform revenue</span><span className="k-val">{money(s.revenue)}</span><span className="k-sub">5% of captured</span></div>
+        <div className="kpi"><span className="k-label">Platform revenue</span><span className="k-val">{money(s.revenue)}</span><span className="k-sub">commission on captured</span></div>
         <div className="kpi"><span className="k-label">Held in escrow</span><span className="k-val">{money(s.held)}</span><span className="k-sub">booked, not yet done</span></div>
         <div className="kpi"><span className="k-label">Quote acceptance</span><span className="k-val">{s.acceptance_rate === null ? "—" : `${Math.round(s.acceptance_rate * 100)}%`}</span><span className="k-sub">accepted ÷ sent</span></div>
       </div>

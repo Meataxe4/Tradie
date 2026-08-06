@@ -28,8 +28,8 @@ export const TRADIE_QUOTES = [
 const TRUST = [
   "Vetted, licensed & insured trades",
   "Firm upfront prices",
-  "Payment held until the job's done",
-  "5% fee — only on completed jobs",
+  "One quote — no bidding wars",
+  "No charge until the job's done",
 ];
 const POPULAR = ["electrical", "plumbing_water", "gas", "hvac", "carpentry", "handyman", "appliance", "locksmith"];
 const STATES = ["NSW", "VIC", "QLD", "WA", "SA", "TAS", "ACT", "NT"];

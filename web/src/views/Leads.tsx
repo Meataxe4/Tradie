@@ -192,6 +192,11 @@ export function Leads() {
                 </div>
                 <span className={`urgency-pill ${l.urgency}`}>{l.urgency}</span>
               </div>
+              {l.rebook_reserved && l.assigned_to_me && (
+                <span className="sla-line" style={{ color: "var(--safe)" }}>
+                  {Icon.star}Reserved for you — a 5-star customer asked for you again
+                </span>
+              )}
               {l.status === "AWAITING_QUOTE" && !l.my_quote && <SlaLine createdAt={l.created_at} />}
               <div className="fc-foot">
                 <span style={{ fontSize: 13, color: "var(--muted)" }}>
@@ -261,7 +266,7 @@ function WonCard({ won, onChange }: { won: WonLead; onChange: () => void }) {
       {p && (
         <dl className="payout" style={{ marginTop: 12 }}>
           <dt>Job price (GST incl.)</dt><dd>{money(p.amount_captured ?? p.amount_authorized)}</dd>
-          <div className="fee" style={{ display: "contents" }}><dt>Platform fee (5%)</dt><dd>−{money(p.platform_fee ?? 0)}</dd></div>
+          <div className="fee" style={{ display: "contents" }}><dt>Platform fee{p.platform_fee && p.amount_captured ? ` (${Math.round((p.platform_fee / p.amount_captured) * 100)}%)` : ""}</dt><dd>−{money(p.platform_fee ?? 0)}</dd></div>
           <div className="total" style={{ display: "contents" }}><dt>{p.status === "captured" ? "You received" : "You'll receive"}</dt><dd>{money(p.trade_payout ?? 0)}</dd></div>
         </dl>
       )}
@@ -290,7 +295,7 @@ function WonCard({ won, onChange }: { won: WonLead; onChange: () => void }) {
         </div>
       )}
       {scheduled && (
-        <p className="keep-line">Keep it on Sorted By — payment's guaranteed, the fee's only 5%, and every completed job builds your rating and match priority. Cash jobs build nothing.</p>
+        <p className="keep-line">Keep it on Sorted By — payment's guaranteed, the fee's small (foundation trades keep 5% for life), and every completed job builds your rating and match priority. Cash jobs build nothing.</p>
       )}
       {showVar && scheduled && (
         <div className="card" style={{ marginTop: 12, marginBottom: 0 }}>

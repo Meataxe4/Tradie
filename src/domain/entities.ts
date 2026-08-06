@@ -67,6 +67,8 @@ export interface TradieProfile {
   verified_status: VerifiedStatus;
   /** Rolling median response time in minutes; lower ranks higher (§7). */
   avg_response_minutes?: number;
+  /** D13: foundation trades keep a 5% commission locked for life (8% standard). */
+  foundation?: boolean;
 }
 
 // §6 Job state machine — "assigned, not auctioned": a job is assigned to ONE
@@ -133,6 +135,8 @@ export interface Job {
   stage_label?: string; // e.g. "Stop the leak"
   /** Compliance certificate lodged by the trade on completion (regulated work). */
   certificate?: JobCertificate;
+  /** Assigned via 5-star rebook: this customer's top-rated trade got first right of refusal. */
+  rebook_reserved?: boolean;
   created_at: string;
 }
 
@@ -174,14 +178,19 @@ export type MessageSenderRole = "homeowner" | "tradie";
 
 export interface MessageThread {
   id: string;
-  quote_id: string;
-  job_id: string;
+  /** Quote-level 1:1 thread (homeowner ↔ one trade). */
+  quote_id?: string;
+  job_id?: string;
+  /** Project-level job-site group thread (homeowner + all booked trades). */
+  project_id?: string;
 }
 
 export interface Message {
   id: string;
   thread_id: string;
   sender_role: MessageSenderRole;
+  /** Display name — meaningful in project (job-site) group threads. */
+  sender_name?: string;
   /** Body AFTER the contact-masking filter (§9). */
   body: string;
   /** True if the filter redacted something (logged as a leakage attempt). */

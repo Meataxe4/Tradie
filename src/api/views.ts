@@ -21,6 +21,12 @@ export function tradieSummary(store: MemoryStore, tradieId: string) {
   const strengths = computeStrengths(
     [...store.reviews.values()].filter((r) => r.ratee_id === tradieId && r.rater_role === "homeowner"),
   );
+  // Gold badge (Etsy-Star-Seller style): consistently excellent and clean —
+  // 4.8+ average over a real body of work, with no unresolved dispute.
+  const hasOpenDispute = [...store.bookings.values()].some(
+    (b) => b.tradie_id === tradieId && b.disputed_at && b.status !== "completed",
+  );
+  const gold = t.rating_avg >= 4.8 && t.jobs_completed >= 3 && !hasOpenDispute;
   return {
     tradie_id: t.user_id,
     business_name: t.business_name,
@@ -33,6 +39,8 @@ export function tradieSummary(store: MemoryStore, tradieId: string) {
     insured: Boolean(t.insurance.public_liability_expiry),
     member_since: user?.created_at ?? null,
     strengths,
+    gold,
+    foundation: Boolean(t.foundation),
   };
 }
 
@@ -65,6 +73,7 @@ export function leadView(store: MemoryStore, job: Job, tradieId: string) {
     certificate: job.certificate ?? null,
     certificate_required: certificateRequirement(job.category),
     created_at: job.created_at,
+    rebook_reserved: Boolean(job.rebook_reserved),
     quote_count: quoteCount,
     quote_kind: job.quote_kind ?? null,
     assigned_to_me: job.assigned_tradie_id === tradieId,
