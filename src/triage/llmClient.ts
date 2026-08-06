@@ -343,7 +343,7 @@ export class MockTriageClient implements TriageLlmClient {
     }
 
     // --- DIY: blocked sink (plunger) ---
-    if (has("blocked sink", "blocked basin", "slow drain", "clogged sink", "blocked toilet")) {
+    if (has("blocked sink", "sink is blocked", "blocked basin", "slow drain", "draining slow", "clogged sink", "blocked toilet", "toilet is blocked")) {
       return diySafe({
         category: "plumbing_water",
         recommended_trade: "plumber",
@@ -359,6 +359,29 @@ export class MockTriageClient implements TriageLlmClient {
         ],
         userMessage:
           "A plunger clears most simple blockages. If it won't budge or several fixtures are affected, it's time for a licensed plumber.",
+        photoCount: input.photoCount,
+      });
+    }
+
+    // --- GENERAL water-ingress fallback: any watery description that hasn't
+    // matched a DIY pattern above routes to a licensed plumber. Unlisted
+    // phrasings ("water coming from ceiling") must never fall to UNCLEAR when
+    // the domain is obvious. Conservative by design: water in the wrong place
+    // is regulated plumbing until a pro says otherwise.
+    if (/(water|leak|leaking|drip|damp|moisture|flood|wet\b|overflow)/i.test(t)) {
+      return needsPro({
+        category: "plumbing_water",
+        regulated_domains: ["plumbing_water"],
+        recommended_trade: "plumber",
+        licence: "Plumbing contractor licence",
+        why: "Water where it shouldn't be is licensed plumbing work — it needs a licensed plumber.",
+        title: "Water problem — source to be found",
+        summary: "Water appearing where it shouldn't; a licensed plumber needs to find and fix the source.",
+        symptoms: ["Water present where it should not be"],
+        questions: ["Have you turned off the water at the mains?", "Is the water still coming?"],
+        userMessage:
+          "Water where it shouldn't be needs a licensed plumber to find the source. " +
+          "I've written up the details so you'll get an accurate quote shortly.",
         photoCount: input.photoCount,
       });
     }

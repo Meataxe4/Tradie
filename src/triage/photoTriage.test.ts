@@ -169,3 +169,21 @@ describe("water-ingress phrasings classify as regulated plumbing (Blake QA round
       expect(out.gate.triage.category).toBe("plumbing_water");
     });
 });
+
+describe("generic water fallback: unlisted phrasings never fall to UNCLEAR", () => {
+  it.each(["water coming from ceiling", "there's a puddle of water on the laundry floor", "water everywhere in the bathroom"])(
+    "'%s' routes to a licensed plumber", async (phrase) => {
+      const out = await svc().triage({ description: phrase, photoCount: 0 });
+      expect(out.gate.triage.verdict).toBe("NEEDS_LICENSED_PRO");
+      expect(out.gate.triage.category).toBe("plumbing_water");
+    });
+  it("a blocked sink hits the DIY pattern, then the gate escalates as always", async () => {
+    // Long-standing gate behaviour: plumbing_water is a regulated category, so
+    // the model's DIY plunger answer is escalated to PRO and the steps stripped.
+    // This test pins that the generic water fallback did NOT change the path.
+    const out = await svc().triage({ description: "The kitchen sink is blocked and draining slowly", photoCount: 0 });
+    expect(out.gate.model_verdict).toBe("DIY_SAFE");
+    expect(out.gate.triage.verdict).toBe("NEEDS_LICENSED_PRO");
+    expect(out.gate.triage.diy_guidance).toBeNull();
+  });
+});
