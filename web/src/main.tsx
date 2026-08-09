@@ -12,9 +12,30 @@ try {
   document.documentElement.setAttribute("data-theme", storage.get("squiz.theme") === "dark" ? "dark" : "light");
 } catch { /* ignore */ }
 
-// The live-demo build runs in a sandboxed frame where history.pushState throws;
-// MemoryRouter keeps routing in memory and never touches window.history/location.
-const Router = import.meta.env.VITE_DEMO ? MemoryRouter : HashRouter;
+// Routing has to survive two very different homes: a normal https page (where
+// the URL should track the route so links like #/tradies can be shared), and a
+// sandboxed frame or file:// page where history.pushState throws SecurityError.
+// HashRouter uses pushState underneath, so it cannot be used in the second case.
+//
+// Probe once, then pick. Either way the route named by the initial hash is
+// honoured: MemoryRouter never reads window.location, so when we fall back to it
+// the starting route has to be handed over explicitly. Without that seeding a
+// shared deep link silently lands the visitor on the home page instead.
+function historyIsWritable(): boolean {
+  try {
+    window.history.replaceState(window.history.state, "", window.location.href);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** "#/tradies" -> "/tradies"; absent or bare hash -> "/". */
+function routeFromHash(): string {
+  const raw = window.location.hash.replace(/^#/, "");
+  if (!raw || raw === "/") return "/";
+  return raw.startsWith("/") ? raw : `/${raw}`;
+}
 
 function showFatal(message: string) {
   const root = document.getElementById("root");
@@ -32,11 +53,19 @@ function render() {
   try {
     ReactDOM.createRoot(document.getElementById("root")!).render(
       <React.StrictMode>
-        <Router>
-          <SessionProvider>
-            <App />
-          </SessionProvider>
-        </Router>
+        {historyIsWritable() ? (
+          <HashRouter>
+            <SessionProvider>
+              <App />
+            </SessionProvider>
+          </HashRouter>
+        ) : (
+          <MemoryRouter initialEntries={[routeFromHash()]}>
+            <SessionProvider>
+              <App />
+            </SessionProvider>
+          </MemoryRouter>
+        )}
       </React.StrictMode>,
     );
   } catch (e) {

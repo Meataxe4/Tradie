@@ -9,7 +9,7 @@ import { ClarifyForm } from "../parts";
 import { downscale } from "./NewJob";
 
 /**
- * Variant B landing: the problem comes first, the account comes later.
+ * The landing page: the problem comes first, the account comes later.
  *
  * A guest types what's wrong and gets the triaged verdict immediately —
  * safety guidance is NEVER behind a signup wall, and an emergency takes over
