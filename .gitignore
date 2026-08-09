@@ -2,12 +2,17 @@
 #
 # It should only ever contain:
 #   .nojekyll      - stops Pages running the files through Jekyll
-#   index.html     - variant A, built from web/dist-demo/index.html
-#   b/index.html   - variant B, built from web/dist-demo-b/index.html
+#   index.html     - the demo, built from web/dist-demo/index.html
+#   b/index.html   - the same file again, so links shared while the intake
+#                    A/B test was running (including b/#/tradies) keep working
 #
-# Both demo pages are single self-contained HTML files, so there are no
-# asset directories to publish alongside them. Source, builds and
-# dependencies belong on main -- never here.
+# There is one demo now: problem-first won the A/B test (D11) and the
+# sign-up-first arm was removed from the codebase. Publish the same built
+# file to both paths.
+#
+# The demo is a single self-contained HTML file, so there are no asset
+# directories to publish alongside it. Source, builds and dependencies
+# belong on main -- never here.
 #
 # These entries exist because a past publish swept ~12,000 dependency
 # files onto this branch by accident.
