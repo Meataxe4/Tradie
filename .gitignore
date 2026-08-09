@@ -1,0 +1,23 @@
+# This branch is the published GitHub Pages site and nothing else.
+#
+# It should only ever contain:
+#   .nojekyll      - stops Pages running the files through Jekyll
+#   index.html     - variant A, built from web/dist-demo/index.html
+#   b/index.html   - variant B, built from web/dist-demo-b/index.html
+#
+# Both demo pages are single self-contained HTML files, so there are no
+# asset directories to publish alongside them. Source, builds and
+# dependencies belong on main -- never here.
+#
+# These entries exist because a past publish swept ~12,000 dependency
+# files onto this branch by accident.
+
+node_modules/
+web/
+dist/
+dist-demo/
+dist-demo-b/
+src/
+
+*.log
+.DS_Store
