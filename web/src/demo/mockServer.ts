@@ -447,7 +447,7 @@ export function handleRequest(method: string, path: string, body: any, authHeade
   const user = decode(authHeader);
   const need = (...roles: Role[]): any => { if (!user) throw err(401, "Sign in to continue"); if (!roles.includes(user.role)) throw err(403, "Wrong role"); return user; };
   try {
-    // PUBLIC guest triage (variant B problem-first intake): verdict + ballpark
+    // PUBLIC guest triage (problem-first intake): verdict + ballpark
     // before any account exists — safety guidance is never behind a signup wall.
     if (method === "POST" && seg[0] === "triage" && seg[1] === "preview") {
       const description = String(body?.description ?? "").trim();

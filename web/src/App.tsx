@@ -67,7 +67,7 @@ function TopBar() {
         )}
         <span className="spacer" />
         <div className="who">
-          {!identity && import.meta.env.VITE_VARIANT === "b" && (
+          {!identity && (
             <NavLink to="/tradies" className="btn ghost sm tp-header-btn">
               Tradie Portal
             </NavLink>
@@ -88,9 +88,11 @@ function TopBar() {
 
 function Home() {
   const { identity } = useSession();
-  // Variant B (problem-first build): guests land on the intake, not the pitch.
-  // Returning users have a stored session, so they skip straight into the app.
-  if (!identity) return import.meta.env.VITE_VARIANT === "b" ? <ProblemFirst /> : <Login />;
+  // Guests land on the intake, not a pitch — describe the problem first, make an
+  // account later, once there is a quote worth unlocking. (The sign-up-first
+  // landing was the losing arm of the intake A/B test; Login now serves /signin
+  // only.) Returning users have a stored session and skip straight into the app.
+  if (!identity) return <ProblemFirst />;
   return <Navigate to={identity.role === "tradie" ? "/leads" : identity.role === "admin" ? "/admin" : "/new"} replace />;
 }
 

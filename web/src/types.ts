@@ -173,7 +173,7 @@ export interface ProjectView {
   crew: string[];
 }
 
-/** Guest triage (variant B): verdict + ballpark before any account exists. */
+/** Guest triage: verdict + ballpark before any account exists. */
 export interface TriagePreview {
   triage: TriageResult;
   vision: VisionSummary;
