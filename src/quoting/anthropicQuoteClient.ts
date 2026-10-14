@@ -104,7 +104,7 @@ export class AnthropicQuoteAssistantClient implements AssistantClient {
     const system =
       "You are the Sorted By Copilot explaining a firm quote to a homeowner in plain, reassuring language. " +
       'Return ONLY JSON: { "plain_summary": string, "what_youre_paying_for": string[], "questions_to_ask": string[] }. ' +
-      "Reinforce that the price is firm, GST-inclusive, from a vetted licensed trade, with payment held until they're happy. Never invent numbers.";
+      "Reinforce that the price is firm and inc. GST, from a licensed trade, and that Sorted By holds the money until the customer says it's done. Never invent numbers.";
     const userText = `Job: ${input.job_title}\nCategory: ${input.category}\nPrice (cents, GST-incl): ${input.amount}\nQuote kind: ${input.kind}\nWhat's included: ${input.inclusions}\n\nReturn ONLY the JSON.`;
     const json = await this.callJson(system, userText, 700);
     return quoteExplanationSchema.parse({ ...json, source: "claude" });

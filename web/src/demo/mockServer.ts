@@ -148,7 +148,7 @@ function draftQuote(job: any): AnyMap {
   const assumptions = ["Standard access to the work area during business hours.", "No concealed damage (water, pest or structural) behind the fault."];
   if (regulated) assumptions.push("Scope confirmed against NSW licensing requirements on site.");
   if (checks.length) assumptions.push(`Subject to on-site checks: ${checks.join("; ")}.`);
-  const customer_message = `Thanks for the details — I've reviewed what Sorted By sent through. Based on ${summary.toLowerCase()}, my firm, GST-inclusive price is ${qMoney(total)}. That covers ${anchor ? anchor.label.toLowerCase() : "attendance, diagnosis, labour and materials"}, with ${certify}. Payment's held securely by Sorted By and only released once you're happy the job's done. If anything extra comes up on site, I'll send it as a variation for you to approve first.`;
+  const customer_message = `Thanks for the details — I've reviewed what Sorted By sent through. Based on ${summary.toLowerCase()}, my firm, GST-inclusive price is ${qMoney(total)}. That covers ${anchor ? anchor.label.toLowerCase() : "attendance, diagnosis, labour and materials"}, with ${certify}. Sorted By holds the money until you say it's done. If anything extra comes up on site, I'll send you the new price to approve first.`;
   return { suggested_amount: total, line_items: items, scope_of_work: mask(scope).body, customer_message: mask(customer_message).body, assumptions, source: "assistant" };
 }
 
@@ -166,7 +166,7 @@ function explainQuoteMock(q: any, job: any): AnyMap {
   const regulated = Q_REGULATED.has(job.category);
   const tri = db.triages.get(job.id); const title = tri?.result.job_spec?.title ?? `${job.category} job`;
   const plain_summary = `This is a single, firm price of ${qMoney(q.amount)} (GST included) to ${title.toLowerCase()}. ${q.kind === "price_book" ? "It's a standard Sorted By fixed price for this job" : "Your assigned trade set this price for your specific job"} — there's no bidding and no surprise add-ons.`;
-  const what_youre_paying_for = [q.inclusions || "Attendance, diagnosis and the repair", "A vetted, licensed local trade — not the cheapest bidder", regulated ? "Testing and a compliance certificate for regulated work" : "Testing to confirm the fix works", "Payment held securely and only released once you're happy"];
+  const what_youre_paying_for = [q.inclusions || "Attendance, diagnosis and the repair", "A licensed local trade, licence checked", regulated ? "Testing and a compliance certificate for regulated work" : "Testing to confirm the fix works", "We hold the money until you say it's done"];
   const questions_to_ask = ["Roughly how long will the job take?", "Is there anything that could change the price on the day?", regulated ? "Will I get the compliance certificate on completion?" : "Is the work guaranteed?"];
   return { plain_summary, what_youre_paying_for, questions_to_ask, source: "assistant" };
 }

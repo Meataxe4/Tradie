@@ -238,7 +238,7 @@ export function NewJob() {
     const rec = result.triage.recommended_trade;
     const trade = !rec || rec === "none" ? "tradie" : rec.replace("_", " ");
     const sub = result.project
-      ? `We've split this into ${result.project.stages.length} sequenced stages, each with its own vetted trade.`
+      ? `We've split this into ${result.project.stages.length} sequenced stages, each with its own licensed trade.`
       : result.triage.verdict === "UNCLEAR"
       ? "We need a little more detail before we can route this safely — the questions below tell us exactly what to check."
       : !isPro
@@ -246,10 +246,10 @@ export function NewJob() {
       : result.job.rebook_reserved && result.assigned_tradie
         ? `Good news — we've reserved this for ${result.assigned_tradie.business_name}. You rated them 5 stars last time, so they get first crack at it.${result.quote ? " Their firm price is ready — accept in a tap." : " They'll send you a firm quote shortly."}`
       : result.quote
-        ? `We've assigned ${result.assigned_tradie?.business_name ?? `a vetted ${trade}`} and prepared a firm price from our price book. Review and accept in a tap.`
+        ? `We've assigned ${result.assigned_tradie?.business_name ?? `a licensed ${trade}`} and prepared a firm price from our price book. Review and accept in a tap.`
         : result.assigned_tradie
           ? `We've assigned ${result.assigned_tradie.business_name} — they'll send you a firm quote shortly, with all the detail you gave us.`
-          : `We'll assign a vetted local ${trade} and get you a firm quote shortly.`;
+          : `We'll assign a licensed local ${trade} and get you a firm quote shortly.`;
     return (
       <div>
         <p className="eyebrow">Your concierge result</p>
@@ -276,7 +276,7 @@ export function NewJob() {
             <p className="notice" style={{ marginBottom: 8 }}>
               This looks like more than one trade:{" "}
               <b>{Array.from(new Set(result.project.stages.map((s) => CATEGORY_META[s.category]?.label ?? s.category))).join(", ")}</b>.
-              We've split it into sequenced stages — each gets its own vetted trade and firm price, and you
+              We've split it into sequenced stages — each gets its own licensed trade and firm price, and you
               book them in order, all in one place.
             </p>
             <p className="notice" style={{ marginBottom: 12 }}>
@@ -301,7 +301,7 @@ export function NewJob() {
           <div className="ballpark">
             <span className="bp-label">Typical range for this kind of job</span>
             <span className="bp-range">{money(result.ballpark.low)} – {money(result.ballpark.high)}</span>
-            <span className="bp-note">A guide only — your assigned trade sends one firm price, and payment's held until the job's done.</span>
+            <span className="bp-note">A guide only — your assigned trade sends one firm price, and we hold it until the job's done.</span>
           </div>
         )}
 

@@ -8,8 +8,8 @@ import { Avatar } from "../parts";
 
 export const HOW = [
   { n: 1, h: "Tell the concierge", p: "Describe the problem in plain words and add photos. Our AI concierge asks the right questions — the way a great tradie would on the phone." },
-  { n: 2, h: "Get one firm quote", p: "A genuinely safe fix is walked through step by step. Otherwise you get one firm, GST-inclusive price from a vetted local trade — no bidding wars, no chasing quotes." },
-  { n: 3, h: "Accept in a tap, pay when it's done", p: "Booking holds your payment securely. The trade arrives knowing the scope, and money is only charged once the job's complete." },
+  { n: 2, h: "Get one firm quote", p: "A genuinely safe fix is walked through step by step. Otherwise you get one firm price, GST included, from a licensed local trade — no bidding wars, no chasing quotes." },
+  { n: 3, h: "Accept in a tap, pay when it's done", p: "We hold your money when you book. The trade arrives knowing the scope, and nothing's charged until you say the job's done." },
 ];
 // Pilot preview quotes — clearly labelled as samples until real pilot reviews
 // replace them. Do NOT present these as genuine customer reviews. Each surface
@@ -18,7 +18,7 @@ export const HOW = [
 export const HOMEOWNER_QUOTES = [
   { q: "Described the leak, had a firm price before the kettle boiled. Didn't chase a single quote.", who: "Homeowner — what the pilot is built to feel like" },
   { q: "It told me not to touch the wiring and had an electrician booked instead. That's the whole point.", who: "Homeowner — what the pilot is built to feel like" },
-  { q: "Money sat safely held until the job was done. No awkward cash chat, no invoice chasing me.", who: "Homeowner — what the pilot is built to feel like" },
+  { q: "They held the money until the job was done. No awkward cash chat, no invoice chasing me.", who: "Homeowner — what the pilot is built to feel like" },
 ];
 export const TRADIE_QUOTES = [
   { q: "The job turned up already specced — photos, scope, access notes. I quoted from the ute in two minutes.", who: "Tradie — what the pilot is built to feel like" },
@@ -26,7 +26,7 @@ export const TRADIE_QUOTES = [
   { q: "Customer accepted, money already held, paid the day I finished. Zero invoicing, zero chasing.", who: "Tradie — what the pilot is built to feel like" },
 ];
 const TRUST = [
-  "Vetted, licensed & insured trades",
+  "Licensed and insured trades, checked",
   "Firm upfront prices",
   "One quote — no bidding wars",
   "No charge until the job's done",
@@ -55,9 +55,9 @@ export function Login() {
       <section className="hero">
         <h1>A great tradie at a fair price,<br /><span className="accent">sorted</span>.</h1>
         <p className="sub">
-          Tell our AI concierge what's wrong. Get safe DIY help, or one firm quote from a vetted local
-          trade in minutes — not days of chasing callbacks. Accept in a tap, with your payment held
-          securely until the job's done.
+          Tell our AI concierge what's wrong. Get safe DIY help, or one firm quote from a licensed local
+          trade in minutes — not days of chasing callbacks. Accept in a tap, and we hold the money
+          until you say it's done.
         </p>
 
         <div className="trust-strip">

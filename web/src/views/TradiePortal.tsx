@@ -18,7 +18,7 @@ const BENEFITS = [
   { icon: "tools" as const, h: "Quote from the ute in minutes", p: "Your Copilot drafts the quote from the job spec and your rates. Check it, tweak it, send it — from your phone, no office software." },
   { icon: "shield" as const, h: "The money's real before you start", p: "Accepted means the customer's payment is already held. Finish the job, they confirm, you're paid — no invoicing, no chasing." },
   { icon: "clock" as const, h: "Know when you've been seen", p: "You'll see the moment the customer opens your quote — so you follow up at the right time, not into the void." },
-  { icon: "pin" as const, h: "Jobs that fit you", p: "Matched on your trade, your licence and your service area. One vetted trade per job — no race to the bottom against six others." },
+  { icon: "pin" as const, h: "Jobs that fit you", p: "Matched on your trade, your licence and your service area. One licensed trade per job — no race to the bottom against six others." },
   { icon: "tick" as const, h: "8% only when you're paid — 5% for life if you're a founder", p: "No lead fees, no subscriptions, no paying for tyre-kickers. The platform only earns when you do — and foundation trades who join before launch keep a 5% rate locked for life." },
 ];
 
@@ -48,7 +48,7 @@ export function TradiePortal() {
         <h1>Stop quoting blind.<br /><span className="accent">Start getting paid.</span></h1>
         <p className="sub">
           Sorted By sends you jobs with the homework already done — photos, scope and access notes
-          before you leave the ute. You send one firm price, the customer's money is held before you
+          before you leave the ute. You send one firm price, we hold the customer's money before you
           start, and you're paid the day it's done.
         </p>
 

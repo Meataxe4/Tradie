@@ -73,17 +73,17 @@ function HomeownerSteps() {
         </div>
         <div className="mini-bubble">Is the leak steady or only when the tap runs?</div>
       </Step>
-      <Step n={2} h="One firm price from one vetted local tradie"
-        p="No bidding wars, no five phone calls. We match one vetted, licensed tradie and you get one firm, GST-inclusive price — usually in minutes.">
+      <Step n={2} h="One firm price from one licensed local tradie"
+        p="No bidding wars, no five phone calls. We match one licensed tradie and you get one firm price, GST included — usually in minutes.">
         <div className="mini-card">
-          <div className="mini-trade"><span className="mini-avatar">N</span> Newtown Plumbing Co <span className="mini-badge">✓ vetted</span></div>
+          <div className="mini-trade"><span className="mini-avatar">N</span> Newtown Plumbing Co <span className="mini-badge">✓ licence checked</span></div>
           <div className="mini-price">$240</div>
           <div className="mini-sub">Firm price · incl. GST · tomorrow 8–10am</div>
           <div className="mini-btn">Accept quote</div>
         </div>
       </Step>
       <Step n={3} h="Pay only when it's done"
-        p="Your money is held securely — the tradie sees it's real, but nothing is charged until you say the job's complete. If something's wrong, it stays held while we sort it.">
+        p="We hold the money — the trade can see it's real, but nothing's charged until you say it's done. If something's wrong, we keep holding it while we sort it out.">
         <div className="mini-card">
           <div className="mini-lbl">Job complete</div>
           <div className="mini-timeline">
@@ -120,7 +120,7 @@ function TradieSteps() {
         </div>
       </Step>
       <Step n={3} h="The money's already waiting"
-        p="Accepted means the customer's payment is held before you start. Mark it done, they confirm, you're paid — no invoicing, no chasing, and a review that builds your rank.">
+        p="Accepted means we're holding the customer's money before you start. Mark it done, they confirm, you're paid — no invoicing, no chasing, and a review that builds your rank.">
         <div className="mini-card">
           <div className="mini-lbl">Paid to you</div>
           <div className="mini-price">$228</div>
