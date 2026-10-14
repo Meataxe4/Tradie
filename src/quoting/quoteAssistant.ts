@@ -228,10 +228,10 @@ export class MockQuoteAssistantClient implements QuoteAssistantClient {
 
     const customer_message =
       `Thanks for the details — I've reviewed what Sorted By sent through. ` +
-      `Based on ${summary.toLowerCase()}, my firm, GST-inclusive price is ${money(total)}. ` +
+      `Based on ${summary.toLowerCase()}, my firm price is ${money(total)} inc. GST. ` +
       `That covers ${input.price_book_anchor ? input.price_book_anchor.label.toLowerCase() : "attendance, diagnosis, labour and materials"}, ` +
-      `with ${certify}. Payment's held securely by Sorted By and only released once you're happy the job's done. ` +
-      `If anything extra comes up on site, I'll send it as a variation for you to approve first.`;
+      `with ${certify}. Sorted By holds the money until you say it's done. ` +
+      `If anything extra comes up on site, I'll send you the new price to approve first.`;
 
     return quoteDraftSchema.parse({
       suggested_amount: total,
@@ -269,9 +269,9 @@ export class MockQuoteAssistantClient implements QuoteAssistantClient {
       `there's no bidding and no surprise add-ons.`;
     const what_youre_paying_for = [
       input.inclusions.trim() || "Attendance, diagnosis and the repair",
-      "A vetted, licensed local trade — not the cheapest bidder",
+      "A licensed local trade, licence checked",
       regulated ? "Testing and a compliance certificate for regulated work" : "Testing to confirm the fix works",
-      "Payment held securely and only released once you're happy",
+      "We hold the money until you say it's done",
     ];
     const questions_to_ask = [
       "Roughly how long will the job take?",

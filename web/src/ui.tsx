@@ -97,7 +97,14 @@ const VMETA: Record<Verdict, { cls: string; ico: ReactNode; label: string }> = {
 };
 
 export function money(cents: number): string {
-  return new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD" }).format(cents / 100);
+  // House style: cents only when they aren't zero. $385, not $385.00 — but $82.50.
+  const zeroCents = cents % 100 === 0;
+  return new Intl.NumberFormat("en-AU", {
+    style: "currency",
+    currency: "AUD",
+    minimumFractionDigits: zeroCents ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(cents / 100);
 }
 
 export function tradeName(t: string): string {

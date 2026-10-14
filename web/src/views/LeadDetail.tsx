@@ -74,7 +74,7 @@ export function LeadDetail() {
               <div className="offer-name">Your quote</div>
               <div className="offer-sub">{lead.my_quote.status === "accepted" ? "You won this job 🎉" : "Waiting on the homeowner"}</div>
             </div>
-            <div className="offer-price"><div className="amt">{money(lead.my_quote.amount)}</div></div>
+            <div className="offer-price"><div className="amt">{money(lead.my_quote.amount)}<span className="inc-gst">inc. GST</span></div></div>
           </div>
           <p className="offer-incl">{lead.my_quote.inclusions}</p>
         </div>
@@ -175,7 +175,7 @@ function QuoteForm({ jobId, onDone }: { jobId: string; onDone: () => void }) {
   return (
     <div className="card">
       <h3>{Icon.pro}Send your firm quote</h3>
-      <p className="notice" style={{ marginBottom: 14 }}>This job's assigned to you — no bidding war. Give one firm, GST-inclusive price. Payment is held on booking and lands automatically when the job's done.</p>
+      <p className="notice" style={{ marginBottom: 14 }}>This job's assigned to you — no bidding war. Give one firm price, GST included. We hold the customer's money on booking and it lands when the job's done.</p>
 
       <div className="ai-draft-cta">
         <div>
@@ -191,7 +191,7 @@ function QuoteForm({ jobId, onDone }: { jobId: string; onDone: () => void }) {
         <div className="ai-draft">
           <div className="ai-draft-head">
             <span className="ai-badge">✨ AI draft</span>
-            <span className="ai-total">{money(draft.suggested_amount)}</span>
+            <span className="ai-total">{money(draft.suggested_amount)}<span className="inc-gst">inc. GST</span></span>
           </div>
           <dl className="payout">
             {draft.line_items.map((li, i) => (
@@ -206,7 +206,7 @@ function QuoteForm({ jobId, onDone }: { jobId: string; onDone: () => void }) {
             <span className="lbl">Suggested note to the customer</span>
             <p>{draft.customer_message}</p>
           </div>
-          <p className="ai-note">Review and adjust below — you're sending a firm price. Any extra work goes through the customer as a variation.</p>
+          <p className="ai-note">Review and adjust below — you're sending a firm price. Any extra work goes to the customer as a price change for them to approve.</p>
         </div>
       )}
 

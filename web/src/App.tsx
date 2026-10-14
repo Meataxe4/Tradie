@@ -14,6 +14,7 @@ import { ProjectDetail } from "./views/ProjectDetail";
 import { HowItWorks } from "./views/HowItWorks";
 import { ProblemFirst } from "./views/ProblemFirst";
 import { TradiePortal } from "./views/TradiePortal";
+import { Wordmark } from "./brand";
 
 function ThemeToggle() {
   const [theme, setTheme] = useState<"light" | "dark">(
@@ -42,13 +43,9 @@ function TopBar() {
   return (
     <div className="topbar">
       <div className="topbar-in">
-        <div className="brand">
-          <span className="logo" aria-hidden="true">{Icon.tools}</span>
-          <div>
-            <b>Sorted&nbsp;By</b>
-            <small>get sorted</small>
-          </div>
-        </div>
+        <NavLink to="/" className="brand" aria-label="Sorted By — home">
+          <Wordmark className="wordmark" width={140} />
+        </NavLink>
         {identity && (
           <nav className="nav">
             {identity.role === "homeowner" && (

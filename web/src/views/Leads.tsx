@@ -248,7 +248,7 @@ function WonCard({ won, onChange }: { won: WonLead; onChange: () => void }) {
   };
   const proposeVar = () => {
     const cents = Math.round(Number(amount) * 100);
-    if (!cents || cents <= 0) { setErr("Enter a valid variation amount."); return; }
+    if (!cents || cents <= 0) { setErr("Enter a valid amount."); return; }
     act(() => api.proposeVariation(won.booking.id, cents, reason.trim() || "Additional work"))
       .then(() => { setAmount(""); setReason(""); setVarMsg(""); setShowVar(false); });
   };
@@ -291,7 +291,7 @@ function WonCard({ won, onChange }: { won: WonLead; onChange: () => void }) {
       {scheduled && !won.booking.completion_requested_at && !won.booking.disputed_at && (
         <div className="row wrap" style={{ marginTop: 12 }}>
           <button className="btn sm" disabled={busy} onClick={() => act(() => api.completeBooking(won.booking.id))}>Mark complete → customer confirms</button>
-          <button className="btn ghost sm" onClick={() => setShowVar((s) => !s)}>{showVar ? "Cancel" : "Raise a variation"}</button>
+          <button className="btn ghost sm" onClick={() => setShowVar((s) => !s)}>{showVar ? "Cancel" : "Send a price change"}</button>
         </div>
       )}
       {scheduled && (
@@ -313,7 +313,7 @@ function WonCard({ won, onChange }: { won: WonLead; onChange: () => void }) {
               <span className="lbl">Suggested note to the customer</span><p>{varMsg}</p>
             </div>
           )}
-          <button className="btn sm" style={{ marginTop: 12 }} disabled={busy} onClick={proposeVar}>Send variation</button>
+          <button className="btn sm" style={{ marginTop: 12 }} disabled={busy} onClick={proposeVar}>Send the price change</button>
         </div>
       )}
 

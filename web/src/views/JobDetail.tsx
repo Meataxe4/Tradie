@@ -112,7 +112,7 @@ export function JobDetail() {
 
           {job.status === "DECLINED" && (
             <div className="notice" style={{ marginBottom: 16 }}>
-              You declined this quote — no charge. There wasn't another vetted trade available for this one right
+              You declined this quote — no charge. There wasn't another licensed trade available for this one right
               now, so the job is closed. Post the problem again anytime and we'll rematch you.
             </div>
           )}
@@ -127,7 +127,7 @@ export function JobDetail() {
                 <span className="wt-dot">{Icon.tick}</span>
                 <div>
                   <b>{job.assigned_tradie ? `Assigned to ${job.assigned_tradie.business_name}` : "Finding your tradie"}</b>
-                  <span>{job.assigned_tradie ? `Vetted, licensed ${(priceBook ?? "trade").replace("_", " ")} · ${job.assigned_tradie.rating_avg.toFixed(1)}★` : "matching a vetted local trade"}</span>
+                  <span>{job.assigned_tradie ? `Licensed ${(priceBook ?? "trade").replace("_", " ")} · ${job.assigned_tradie.rating_avg.toFixed(1)}★` : "matching a licensed local trade"}</span>
                 </div>
               </div>
               <div className="wt-step current">
@@ -160,13 +160,13 @@ export function JobDetail() {
                       </div>
                     </div>
                     <div className="offer-price">
-                      <div className="amt">{money(q.amount)}</div>
+                      <div className="amt">{money(q.amount)}<span className="inc-gst">inc. GST</span></div>
                       {q.earliest_availability && <div className="avail">from {q.earliest_availability}</div>}
                     </div>
                   </div>
                   <p className="offer-incl">{q.inclusions}</p>
                   {q.kind === "price_book" && (
-                    <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "6px 0 0" }}>Firm, GST-inclusive price from our price book — no site visit needed.</p>
+                    <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "6px 0 0" }}>Firm price from our price book — no site visit needed.</p>
                   )}
                   {/* UX #9: acknowledge an above-range price before the customer notices it themselves. */}
                   {q.kind !== "price_book" && q.status === "offered" && job.ballpark && q.amount > job.ballpark.high && (
@@ -235,7 +235,7 @@ export function JobDetail() {
               {job.payment && (
                 <div className="pay-line" style={{ marginTop: 12 }}>
                   {job.payment.status === "authorized" ? (
-                    <>{Icon.shield}<span><b>{money(job.payment.amount_authorized)} held securely.</b> You're only charged when the job's marked complete — no surprises.</span></>
+                    <>{Icon.shield}<span><b>We're holding {money(job.payment.amount_authorized)} until it's done.</b> Nothing's charged until you say the job's done.</span></>
                   ) : job.payment.status === "captured" ? (
                     <>{Icon.tick}<span><b>Paid {money(job.payment.amount_captured ?? job.payment.amount_authorized)}.</b> Released to your tradie on completion.</span></>
                   ) : null}
@@ -254,7 +254,7 @@ export function JobDetail() {
                   </div>
                   {v.status === "proposed" ? (
                     <div className="row" style={{ gap: 8 }}>
-                      <button className="btn sm" disabled={busy} onClick={() => decideVariation(v.id, true)}>Approve</button>
+                      <button className="btn sm" disabled={busy} onClick={() => decideVariation(v.id, true)}>Approve the change</button>
                       <button className="btn ghost sm" disabled={busy} onClick={() => decideVariation(v.id, false)}>Decline</button>
                     </div>
                   ) : (
@@ -342,7 +342,7 @@ export function JobDetail() {
             </dl>
             <div className="pay-line" style={{ marginTop: 14 }}>
               {Icon.shield}
-              <span><b>{money(confirming.amount)} is held securely — not charged.</b> Your card is only charged once you mark the job complete. Any extra work must be approved by you first.</span>
+              <span><b>We're holding {money(confirming.amount)} until it's done.</b> Nothing's charged until you say the job's done. If the job changes, you approve the new price first.</span>
             </div>
             <button className="btn" style={{ width: "100%", marginTop: 16 }} disabled={busy} onClick={() => accept(confirming.quote_id)}>
               {busy ? "Booking…" : `Hold ${money(confirming.amount)} & book`}

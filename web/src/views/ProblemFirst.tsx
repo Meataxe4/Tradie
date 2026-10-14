@@ -14,7 +14,7 @@ import { downscale } from "./NewJob";
  * A guest types what's wrong and gets the triaged verdict immediately —
  * safety guidance is NEVER behind a signup wall, and an emergency takes over
  * the screen exactly as it does for a signed-in user. The signup only unlocks
- * the thing the verdict makes them want: the vetted tradie and the firm price.
+ * the thing the verdict makes them want: the licensed tradie and the firm price.
  */
 
 const STATES = ["NSW", "VIC", "QLD", "WA", "SA", "TAS", "ACT", "NT"];
@@ -140,7 +140,7 @@ export function ProblemFirst() {
           <div className="ballpark">
             <span className="bp-label">Typical range for this kind of job</span>
             <span className="bp-range">${Math.round(preview.ballpark.low / 100)} – ${Math.round(preview.ballpark.high / 100)}</span>
-            <span className="bp-note">A guide only — your vetted {trade} sends one firm price, and payment's held until the job's done.</span>
+            <span className="bp-note">A guide only — your licensed {trade} sends one firm price, and we hold it until the job's done.</span>
           </div>
         )}
 
@@ -166,10 +166,10 @@ export function ProblemFirst() {
 
         {!unclear && (!diy || wantPro) && (
           <GuestSignup
-            heading={`Your vetted local ${trade} is ready to quote`}
+            heading={`Your licensed local ${trade} is ready to quote`}
             sub={wantPro
-              ? "No worries — plenty of people would rather a pro handle it. One firm, GST-inclusive price, payment held until it's done. Create your free account and we'll line them up."
-              : "One firm, GST-inclusive price — no bidding wars, no call-backs. Create your free account and we'll get it to you now."}
+              ? "No worries — plenty of people would rather a pro handle it. One firm price, GST included, and we hold it until the job's done. Create your free account and we'll line them up."
+              : "One firm price, GST included — no bidding wars, no call-backs. Create your free account and we'll get it to you now."}
             description={fullDesc()}
             photos={photos}
             preferPro={wantPro}
@@ -289,7 +289,7 @@ export function ProblemFirst() {
           <h3 style={{ margin: "6px 0" }}>{Icon.tools}On the tools? Work's waiting.</h3>
           <p className="notice" style={{ margin: 0 }}>
             Jobs arrive fully specced — photos, scope, access notes. Your Copilot drafts the quote,
-            the customer's money is held before you start, and you're paid on completion. 8% only when you're paid — founding trades keep 5% for life.
+            we're holding the customer's money before you start, and you're paid on completion. 8% only when you're paid — founding trades keep 5% for life.
           </p>
         </div>
         <div className="tp-actions">
